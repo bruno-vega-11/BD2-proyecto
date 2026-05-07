@@ -1,7 +1,0 @@
-=== STDOUT ===
-Parseo exitoso
-Btree sobre 'altura' tipo=FLOAT en tabla 'hola
-
-Tiempo de ejecuciÃ³n: 353 ms
-
-=== STDERR ===

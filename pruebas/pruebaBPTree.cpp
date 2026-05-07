@@ -1,5 +1,5 @@
 #include <bits/stdc++.h>
-#include "../BPTree.h"
+#include "../Index/BPTree.h"
 using namespace std;
 /*
 int main() {

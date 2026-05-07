@@ -1,7 +1,0 @@
-=== STDOUT ===
-Parseo exitoso
-Btree sobre 'genero' tipo=CHAR(10) en tabla 'hola
-
-Tiempo de ejecuciÃ³n: 462 ms
-
-=== STDERR ===

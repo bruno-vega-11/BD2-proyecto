@@ -4,13 +4,13 @@ project(Proyecto)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(Proyecto main.cpp
-                ast.cpp
-                parser.cpp
-                scanner.cpp
-                token.cpp
-                visitor.cpp
-                BPTree.cpp
-                pruebaBPTree.cpp
-                SequentialFile.cpp
-        ExtendibleHashing.cpp
-        ExtendibleHashing.h)
+        Parser/ast.cpp
+        Parser/parser.cpp
+        Parser/scanner.cpp
+        Parser/token.cpp
+        Parser/visitor.cpp
+        Index/BPTree.cpp
+        pruebas/pruebaBPTree.cpp
+        Files/SequentialFile.cpp
+        Index/ExtendibleHashing.h
+        pruebas/pruebaEHashing.cpp)

@@ -2,7 +2,7 @@
 // Created by Usuario on 5/5/2026.
 //
 #include <bits/stdc++.h>
-#include "../ExtendibleHashing.h"
+#include "../Index/ExtendibleHashing.h"
 
 using namespace std;
 /*

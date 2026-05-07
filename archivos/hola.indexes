@@ -1,3 +1,0 @@
-edad:btree:INT
-genero:btree:CHAR(10)
-altura:btree:FLOAT
