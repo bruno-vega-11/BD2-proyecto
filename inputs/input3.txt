@@ -1,12 +1,1 @@
-Scanner
-
-TOKEN(CREATE, "CREATE")
-TOKEN(INDEX, "INDEX")
-TOKEN(BTREE, "BTREE")
-TOKEN(ID, "edad")
-TOKEN(ON, "ON")
-TOKEN(ID, "hola")
-TOKEN(END)
-
-Scanner exitoso
-
+DELETE FROM hola WHERE edad = 40;
