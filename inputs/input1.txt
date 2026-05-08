@@ -1,0 +1,11 @@
+Scanner
+
+TOKEN(SELECT, "SELECT")
+TOKEN(*,"*")
+TOKEN(FROM, "FROM")
+TOKEN(ID, "hola")
+TOKEN(PCOMA, ";")
+TOKEN(END)
+
+Scanner exitoso
+

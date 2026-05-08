@@ -1,0 +1,7 @@
+=== STDOUT ===
+Parseo exitoso
+
+Tiempo de ejecuciÃ³n: 2 ms
+
+=== STDERR ===
+No se pudo abrir: data.csv

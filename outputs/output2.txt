@@ -1,0 +1,8 @@
+=== STDOUT ===
+Parseo exitoso
+META no existe - archivo nuevo
+Btree sobre 'edad' tipo=INT en tabla 'hola
+
+Tiempo de ejecuciÃ³n: 6 ms
+
+=== STDERR ===
