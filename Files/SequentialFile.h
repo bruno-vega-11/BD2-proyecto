@@ -1,3 +1,4 @@
+
 //
 // Created by ASUS on 29/04/2026.
 //
@@ -14,6 +15,41 @@
 #include <utility>
 
 constexpr size_t SEQ_PAGE_SIZE = 4096;
+
+struct PointKey {
+    double longitud;
+    double latitud;
+
+    // Constructor por defecto (necesario para el auto_increment_counter si se inicializa a 0)
+    PointKey(double lon = 0.0, double lat = 0.0) : longitud(lon), latitud(lat) {}
+
+    //Permite que la base de datos haga "auto_increment_counter = 0;"
+    PointKey(int val) : longitud(val), latitud(val) {}
+
+    // 1. Sobrecarga de Igualdad
+    bool operator==(const PointKey& other) const {
+        return longitud == other.longitud && latitud == other.latitud;
+    }
+
+    // 2. Sobrecarga de Menor Qué (Ordenamiento Lexicográfico)
+    bool operator<(const PointKey& other) const {
+        if (longitud != other.longitud) {
+            return longitud < other.longitud; // Comparamos X
+        }
+        return latitud < other.latitud;       // Desempatamos con Y
+    }
+
+    // Permite que "auto_increment_counter++;" compile en tu .cpp genérico,
+    // pero lanza un error seguro si alguien intenta usar los métodos add(string) o add(buffer).
+    PointKey operator++(int) {
+        throw std::runtime_error("Error Geografico: No se pueden autoincrementar coordenadas espaciales. Debes usar add(Record) con la longitud y latitud exactas.");
+    }
+
+    // 3. El resto de operadores se derivan del < y ==
+    bool operator>(const PointKey& other) const { return other < *this; }
+    bool operator<=(const PointKey& other) const { return !(*this > other); }
+    bool operator>=(const PointKey& other) const { return !(*this < other); }
+};
 
 // 1. Puntero Lógico
 struct RecordPointer {

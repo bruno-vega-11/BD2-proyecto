@@ -1,0 +1,8 @@
+=== STDOUT ===
+Parseo exitoso
+META no existe - archivo nuevo
+Tabla 'hola' creada con 48 registros
+
+Tiempo de ejecuciÃ³n: 101 ms
+
+=== STDERR ===

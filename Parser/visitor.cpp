@@ -151,7 +151,7 @@ void EVALVisitor::visit(SelectStmt* s) {
                 if      (op == GEQ_OP || op == GER_OP) lo = val;
                 else if (op == LEQ_OP || op == LES_OP) hi = val;
                 vector<RID> raw = btree.rangeSearch(lo, hi);
-                // filtrar exacto para > y 
+                // filtrar exacto para > y
                 for (auto& rid : raw) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     string val_rec = deserializeField(rec.data + col_offset, col_tipo);
@@ -308,7 +308,7 @@ void EVALVisitor::visit(CreateTableStmt* s) {
     schema.close();
 
     // 2. Abrir CSV
-    ifstream csv( "input/"+ s->path);
+    ifstream csv(s->path);
     if (!csv.is_open()) {
         cerr << "No se pudo abrir: " << s->path << "\n";
         return;
@@ -578,8 +578,8 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 for (auto& rid : rids) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     int val_rec; memcpy(&val_rec, rec.data + col_offset, sizeof(int));
-                    sf.remove(rec.key);
                     btree.removeByRID(val_rec, rid);
+                    sf.remove(rec.key);
                 }
 
             } else if (col_tipo == "FLOAT") {
@@ -597,8 +597,8 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     float val_rec; memcpy(&val_rec, rec.data + col_offset, sizeof(float));
                     if (!cumpleCondicion(to_string(val_rec), val_str, col_tipo, b->op)) continue;
-                    sf.remove(rec.key);
                     btree.removeByRID(val_rec, rid);
+                    sf.remove(rec.key);
                 }
 
             } else if (col_tipo.find("CHAR") != string::npos) {
@@ -617,8 +617,8 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     string val_rec = deserializeField(rec.data + col_offset, col_tipo);
                     if (!cumpleCondicion(val_rec, val_str, col_tipo, b->op)) continue;
                     FixedString<64> val_fs(val_rec);
-                    sf.remove(rec.key);
                     btree.removeByRID(val_fs, rid);
+                    sf.remove(rec.key);
                 }
             }
             cout << "Eliminados " << rids.size() << " registros" << "\n";
@@ -792,7 +792,7 @@ vector<pair<string,string>> leerSchema(const string& path) {
         // separar nombre y tipo por ':'
         size_t pos = token.find(':');
         if (pos == string::npos) continue;
-        
+
         string nombre = token.substr(0, pos);
         string resto  = token.substr(pos + 1); // "INT PK INCREMENTAL" o "INT" o "CHAR(10)"
 

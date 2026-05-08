@@ -1,0 +1,7 @@
+=== STDOUT ===
+Parseo exitoso
+Btree sobre 'edad' tipo=INT en tabla 'hola
+
+Tiempo de ejecuciÃ³n: 7 ms
+
+=== STDERR ===
