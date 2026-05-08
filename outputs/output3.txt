@@ -1,8 +1,6 @@
 === STDOUT ===
 Parseo exitoso
-META no existe - archivo nuevo
-Btree sobre 'edad' tipo=INT en tabla 'hola
-
-Tiempo de ejecuciÃ³n: 3 ms
 
 === STDERR ===
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  Registro no existe para eliminar
