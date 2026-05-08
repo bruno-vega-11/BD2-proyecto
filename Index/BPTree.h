@@ -508,9 +508,27 @@ public:
         while (deleteFirstOccurrence(key)) {}
     }
 
+    PageID findLeftmostLeaf(const TKey& key) const {
+        PageID curr = root;
+
+        while (true) {
+            Page p = disk.read(curr);
+            const NodeT* n = asNode(p);
+
+            if (n->isLeaf) return curr;
+
+            int i = 0;
+
+            while (i < n->numKeys && n->keys[i] < key)
+                i++;
+
+            curr = n->children[i];
+        }
+    }
+
     void removeByRID(const TKey& key, const RID& target) {
         // Búsqueda fresca desde la raíz
-        PageID curr = findLeaf(key);
+        PageID curr = findLeftmostLeaf(key);
         while (curr != NULL_PAGE) {
             Page   p = disk.read(curr);
             NodeT* n = asNode(p);
