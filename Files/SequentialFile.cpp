@@ -174,8 +174,8 @@ RecordPointer SequentialFile<KeyType>::find_predecessor_or_exact(KeyType search_
 }
 
 // Búsqueda para los índices secundarios dictada por tu arquitectura
-template <typename KeyType>
-std::vector<Record<KeyType>> SequentialFile<KeyType>::search(const std::vector<std::pair<std::string, std::pair<long, int>>>& targets) {
+template <typename KeyType>std::vector<Record<KeyType>> SequentialFile<KeyType>::search(const std::vector<std::pair<std::string, std::pair<long, int>>>& targets) {
+
     std::vector<Record<KeyType>> results;
 
     for (const auto& target : targets) {
@@ -526,6 +526,48 @@ void SequentialFile<KeyType>::remove(KeyType key) {
     }
     throw std::runtime_error("Registro no existe para eliminar");
 }
+
+template <typename KeyType>
+void SequentialFile<KeyType>::remove(std::pair<long, int> target) {
+    long page_id = target.first;
+    int slot = target.second;
+    bool eliminado = false;
+
+    // 1. Intentamos eliminar en el archivo principal (datos.dat)
+    if (page_id >= 0 && page_id < total_data_pages) {
+        SeqPage<KeyType> page;
+        data_file.read_page(page_id, page);
+
+        if (slot >= 0 && slot < page.record_count) {
+            if (!page.records[slot].is_deleted) {
+                page.records[slot].is_deleted = true;
+                data_file.write_page(page_id, page);
+                eliminado = true;
+            }
+        }
+    }
+
+    // 2. Intentamos eliminar en el archivo auxiliar (aux.dat)
+    if (page_id >= 0 && page_id < total_aux_pages) {
+        SeqPage<KeyType> aux_page;
+        aux_file.read_page(page_id, aux_page);
+
+        if (slot >= 0 && slot < aux_page.record_count) {
+            if (!aux_page.records[slot].is_deleted) {
+                aux_page.records[slot].is_deleted = true;
+                aux_file.write_page(page_id, aux_page);
+                eliminado = true;
+            }
+        }
+    }
+
+
+    if (!eliminado) {
+        throw std::runtime_error("coordenada fisica invalida o el registro ya estaba eliminado.");
+    }
+}
+
+
 
 template <typename KeyType>
 Record<KeyType> SequentialFile<KeyType>::readByPointer(const RecordPointer& ptr) {
