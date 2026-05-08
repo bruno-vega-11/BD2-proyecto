@@ -1,1 +1,1 @@
-select * from employees
+select * from employees where genero = 'F';
