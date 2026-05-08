@@ -58,9 +58,9 @@ P4UpdateOptions:
 P4UpdateCustom: 
 
 # Generic update command
-UpdateCommand: C:/Program Files/Git/cmd/git.exe
+UpdateCommand: 
 UpdateOptions: 
-UpdateType: git
+UpdateType: 
 
 # Compiler info
 Compiler: C:/Program Files/JetBrains/CLion 2024.2.0.1/bin/mingw/bin/g++.exe

@@ -66,6 +66,7 @@ build CMakeFiles/rtree.dir/main.cpp.obj: CXX_COMPILER__rtree_unscanned_Debug C$:
 
 build rtree.exe: CXX_EXECUTABLE_LINKER__rtree_Debug CMakeFiles/rtree.dir/main.cpp.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\rtree.dir
   POST_BUILD = cd .
@@ -1250,6 +1251,7 @@ build libspatialindex-build/test/CMakeFiles/test-geometry-Intersection.dir/geome
 
 build libspatialindex-build/test/test-geometry-Intersection.exe: CXX_EXECUTABLE_LINKER__test-geometry-Intersection_Debug libspatialindex-build/test/CMakeFiles/test-geometry-Intersection.dir/geometry/Intersection.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-geometry-Intersection.dir
   POST_BUILD = cd .
@@ -1284,6 +1286,7 @@ build libspatialindex-build/test/CMakeFiles/test-rtree-Exhaustive.dir/rtree/Exha
 
 build libspatialindex-build/test/test-rtree-Exhaustive.exe: CXX_EXECUTABLE_LINKER__test-rtree-Exhaustive_Debug libspatialindex-build/test/CMakeFiles/test-rtree-Exhaustive.dir/rtree/Exhaustive.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-rtree-Exhaustive.dir
   POST_BUILD = cd .
@@ -1318,6 +1321,7 @@ build libspatialindex-build/test/CMakeFiles/test-rtree-Generator.dir/rtree/Gener
 
 build libspatialindex-build/test/test-rtree-Generator.exe: CXX_EXECUTABLE_LINKER__test-rtree-Generator_Debug libspatialindex-build/test/CMakeFiles/test-rtree-Generator.dir/rtree/Generator.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-rtree-Generator.dir
   POST_BUILD = cd .
@@ -1352,6 +1356,7 @@ build libspatialindex-build/test/CMakeFiles/test-rtree-RTreeBulkLoad.dir/rtree/R
 
 build libspatialindex-build/test/test-rtree-RTreeBulkLoad.exe: CXX_EXECUTABLE_LINKER__test-rtree-RTreeBulkLoad_Debug libspatialindex-build/test/CMakeFiles/test-rtree-RTreeBulkLoad.dir/rtree/RTreeBulkLoad.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-rtree-RTreeBulkLoad.dir
   POST_BUILD = cd .
@@ -1386,6 +1391,7 @@ build libspatialindex-build/test/CMakeFiles/test-rtree-RTreeLoad.dir/rtree/RTree
 
 build libspatialindex-build/test/test-rtree-RTreeLoad.exe: CXX_EXECUTABLE_LINKER__test-rtree-RTreeLoad_Debug libspatialindex-build/test/CMakeFiles/test-rtree-RTreeLoad.dir/rtree/RTreeLoad.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-rtree-RTreeLoad.dir
   POST_BUILD = cd .
@@ -1420,6 +1426,7 @@ build libspatialindex-build/test/CMakeFiles/test-rtree-RTreeQuery.dir/rtree/RTre
 
 build libspatialindex-build/test/test-rtree-RTreeQuery.exe: CXX_EXECUTABLE_LINKER__test-rtree-RTreeQuery_Debug libspatialindex-build/test/CMakeFiles/test-rtree-RTreeQuery.dir/rtree/RTreeQuery.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-rtree-RTreeQuery.dir
   POST_BUILD = cd .
@@ -1454,6 +1461,7 @@ build libspatialindex-build/test/CMakeFiles/test-mvrtree-Exhaustive.dir/mvrtree/
 
 build libspatialindex-build/test/test-mvrtree-Exhaustive.exe: CXX_EXECUTABLE_LINKER__test-mvrtree-Exhaustive_Debug libspatialindex-build/test/CMakeFiles/test-mvrtree-Exhaustive.dir/mvrtree/Exhaustive.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-mvrtree-Exhaustive.dir
   POST_BUILD = cd .
@@ -1488,6 +1496,7 @@ build libspatialindex-build/test/CMakeFiles/test-mvrtree-Generator.dir/mvrtree/G
 
 build libspatialindex-build/test/test-mvrtree-Generator.exe: CXX_EXECUTABLE_LINKER__test-mvrtree-Generator_Debug libspatialindex-build/test/CMakeFiles/test-mvrtree-Generator.dir/mvrtree/Generator.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-mvrtree-Generator.dir
   POST_BUILD = cd .
@@ -1522,6 +1531,7 @@ build libspatialindex-build/test/CMakeFiles/test-mvrtree-MVRTreeLoad.dir/mvrtree
 
 build libspatialindex-build/test/test-mvrtree-MVRTreeLoad.exe: CXX_EXECUTABLE_LINKER__test-mvrtree-MVRTreeLoad_Debug libspatialindex-build/test/CMakeFiles/test-mvrtree-MVRTreeLoad.dir/mvrtree/MVRTreeLoad.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-mvrtree-MVRTreeLoad.dir
   POST_BUILD = cd .
@@ -1556,6 +1566,7 @@ build libspatialindex-build/test/CMakeFiles/test-mvrtree-MVRTreeQuery.dir/mvrtre
 
 build libspatialindex-build/test/test-mvrtree-MVRTreeQuery.exe: CXX_EXECUTABLE_LINKER__test-mvrtree-MVRTreeQuery_Debug libspatialindex-build/test/CMakeFiles/test-mvrtree-MVRTreeQuery.dir/mvrtree/MVRTreeQuery.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-mvrtree-MVRTreeQuery.dir
   POST_BUILD = cd .
@@ -1590,6 +1601,7 @@ build libspatialindex-build/test/CMakeFiles/test-tools-TemporaryFile.dir/tools/T
 
 build libspatialindex-build/test/test-tools-TemporaryFile.exe: CXX_EXECUTABLE_LINKER__test-tools-TemporaryFile_Debug libspatialindex-build/test/CMakeFiles/test-tools-TemporaryFile.dir/tools/TemporaryFile.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-tools-TemporaryFile.dir
   POST_BUILD = cd .
@@ -1631,6 +1643,7 @@ build libspatialindex-build/test/CMakeFiles/test-tprtree-Exhaustive.dir/tprtree/
 
 build libspatialindex-build/test/test-tprtree-Exhaustive.exe: CXX_EXECUTABLE_LINKER__test-tprtree-Exhaustive_Debug libspatialindex-build/test/CMakeFiles/test-tprtree-Exhaustive.dir/tprtree/Exhaustive.cc.obj libspatialindex-build/test/CMakeFiles/test-tprtree-Exhaustive.dir/tprtree/RandomGenerator.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-tprtree-Exhaustive.dir
   POST_BUILD = cd .
@@ -1672,6 +1685,7 @@ build libspatialindex-build/test/CMakeFiles/test-tprtree-Generator.dir/tprtree/R
 
 build libspatialindex-build/test/test-tprtree-Generator.exe: CXX_EXECUTABLE_LINKER__test-tprtree-Generator_Debug libspatialindex-build/test/CMakeFiles/test-tprtree-Generator.dir/tprtree/Generator.cc.obj libspatialindex-build/test/CMakeFiles/test-tprtree-Generator.dir/tprtree/RandomGenerator.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-tprtree-Generator.dir
   POST_BUILD = cd .
@@ -1713,6 +1727,7 @@ build libspatialindex-build/test/CMakeFiles/test-tprtree-TPRTreeLoad.dir/tprtree
 
 build libspatialindex-build/test/test-tprtree-TPRTreeLoad.exe: CXX_EXECUTABLE_LINKER__test-tprtree-TPRTreeLoad_Debug libspatialindex-build/test/CMakeFiles/test-tprtree-TPRTreeLoad.dir/tprtree/TPRTreeLoad.cc.obj libspatialindex-build/test/CMakeFiles/test-tprtree-TPRTreeLoad.dir/tprtree/RandomGenerator.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-tprtree-TPRTreeLoad.dir
   POST_BUILD = cd .
@@ -1754,6 +1769,7 @@ build libspatialindex-build/test/CMakeFiles/test-tprtree-TPRTreeQuery.dir/tprtre
 
 build libspatialindex-build/test/test-tprtree-TPRTreeQuery.exe: CXX_EXECUTABLE_LINKER__test-tprtree-TPRTreeQuery_Debug libspatialindex-build/test/CMakeFiles/test-tprtree-TPRTreeQuery.dir/tprtree/TPRTreeQuery.cc.obj libspatialindex-build/test/CMakeFiles/test-tprtree-TPRTreeQuery.dir/tprtree/RandomGenerator.cc.obj | libspatialindex-build/src/libspatialindex.a || libspatialindex-build/src/libspatialindex.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\CMakeFiles\test-tprtree-TPRTreeQuery.dir
   POST_BUILD = cd .
@@ -1882,6 +1898,7 @@ build libspatialindex-build/test/gtest/CMakeFiles/libsidxtest.dir/main.cc.obj: C
 
 build bin/libsidxtest.exe: CXX_EXECUTABLE_LINKER__libsidxtest_Debug libspatialindex-build/test/gtest/CMakeFiles/libsidxtest.dir/main.cc.obj | libspatialindex-build/src/libspatialindex_c.a lib/libgtest.a libspatialindex-build/src/libspatialindex.a || lib/libgtest.a libspatialindex-build/src/libspatialindex.a libspatialindex-build/src/libspatialindex_c.a
   FLAGS = -g
+  LINK_FLAGS = -static-libgcc -static-libstdc++ -static
   LINK_LIBRARIES = libspatialindex-build/src/libspatialindex_c.a  lib/libgtest.a  libspatialindex-build/src/libspatialindex.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = libspatialindex-build\test\gtest\CMakeFiles\libsidxtest.dir
   POST_BUILD = cd .

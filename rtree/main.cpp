@@ -1,4 +1,8 @@
 
+
+#include <string>
+#include <algorithm>
+
 #include <iostream>
 #include <vector>
 #include <cstdio>
@@ -384,12 +388,221 @@ void insertarPuntosEnArbol(SpatialIndex::ISpatialIndex* arbol,const std::vector<
     }
 }
 
+
+
+std::string construirJsonInsert(
+    double x,
+    double y,
+    const RID& rid,
+    uint64_t reads,
+    uint64_t writes
+) {
+    std::ostringstream json;
+    SpatialIndex::id_type ridPacked = empaquetarRID(rid);
+
+    json << std::fixed << std::setprecision(6);
+
+    json << "{\n";
+    json << "  \"type\": \"insert\",\n";
+    json << "  \"point\": {\n";
+    json << "    \"x\": " << x << ",\n";
+    json << "    \"y\": " << y << ",\n";
+    json << "    \"rid\": {\n";
+    json << "      \"page\": " << rid.page << ",\n";
+    json << "      \"slot\": " << rid.slot << "\n";
+    json << "    },\n";
+    json << "    \"ridPacked\": " << ridPacked << "\n";
+    json << "  },\n";
+    json << "  \"io\": {\n";
+    json << "    \"reads\": " << reads << ",\n";
+    json << "    \"writes\": " << writes << "\n";
+    json << "  }\n";
+    json << "}";
+
+    return json.str();
+}
+
+
+
+
+void insertarPuntoEnArbol(
+    SpatialIndex::ISpatialIndex* arbol,
+    double x,
+    double y,
+    const RID& rid
+) {
+    double coords[] = {x, y};
+
+    SpatialIndex::Point punto(coords, 2);
+    SpatialIndex::Region region(punto, punto);
+
+    SpatialIndex::id_type ridEmpaquetado = empaquetarRID(rid);
+
+    arbol->insertData(0, nullptr, region, ridEmpaquetado);
+}
+
+
+void ejecutarComandosDesdeStdin(
+    SpatialIndex::ISpatialIndex* arbol,
+    MiPagedDiskStorageManager* almacenamiento
+) {
+    std::vector<PuntoRegistro> puntos;
+
+    std::string linea;
+
+    while (std::getline(std::cin, linea)) {
+        if (linea.empty()) {
+            continue;
+        }
+
+        std::istringstream iss(linea);
+        std::string comando;
+        iss >> comando;
+
+        std::transform(
+            comando.begin(),
+            comando.end(),
+            comando.begin(),
+            [](unsigned char c) { return static_cast<char>(std::toupper(c)); }
+        );
+
+        if (comando == "INSERT") {
+            double x, y;
+            uint32_t page, slot;
+
+            if (!(iss >> x >> y >> page >> slot)) {
+                std::cout << "{ \"type\": \"error\", \"message\": \"Formato INSERT inválido. Usa: INSERT x y page slot\" }\n";
+                continue;
+            }
+
+            RID rid{page, slot};
+
+            almacenamiento->resetCounters();
+
+            insertarPuntoEnArbol(arbol, x, y, rid);
+
+            uint64_t reads = almacenamiento->getReadCount();
+            uint64_t writes = almacenamiento->getWriteCount();
+
+            puntos.push_back({x, y, rid});
+
+            std::cout << "\nJSON Insert para frontend:\n";
+            std::cout << construirJsonInsert(x, y, rid, reads, writes) << std::endl;
+        }
+
+        else if (comando == "RANGE_SEARCH" || comando == "RANGESEARCH" || comando == "SEARCH_RANGE") {
+            double x, y, radio;
+
+            if (!(iss >> x >> y >> radio)) {
+                std::cout << "{ \"type\": \"error\", \"message\": \"Formato RANGE_SEARCH inválido. Usa: RANGE_SEARCH x y radio\" }\n";
+                continue;
+            }
+
+            almacenamiento->resetCounters();
+
+            std::vector<RID> resultadosRange =
+                rangeSearch(*arbol, x, y, radio);
+
+            uint64_t reads = almacenamiento->getReadCount();
+            uint64_t writes = almacenamiento->getWriteCount();
+
+            std::cout << "\nJSON RangeSearch para frontend:\n";
+            std::cout << construirJsonRangeSearch(
+                puntos,
+                resultadosRange,
+                x,
+                y,
+                radio,
+                reads,
+                writes
+            ) << std::endl;
+        }
+
+        else if (comando == "KNN") {
+            double x, y;
+            uint32_t k;
+
+            if (!(iss >> x >> y >> k)) {
+                std::cout << "{ \"type\": \"error\", \"message\": \"Formato KNN inválido. Usa: KNN x y k\" }\n";
+                continue;
+            }
+
+            double coords[] = {x, y};
+            SpatialIndex::Point puntoConsulta(coords, 2);
+
+            almacenamiento->resetCounters();
+
+            std::vector<RID> resultadosKNN =
+                kNN(*arbol, puntoConsulta, k);
+
+            uint64_t reads = almacenamiento->getReadCount();
+            uint64_t writes = almacenamiento->getWriteCount();
+
+            std::cout << "\nJSON kNN para frontend:\n";
+            std::cout << construirJsonKNN(
+                puntos,
+                resultadosKNN,
+                x,
+                y,
+                k,
+                reads,
+                writes
+            ) << std::endl;
+        }
+
+        else if (comando == "DELETE") {
+            double x, y;
+
+            if (!(iss >> x >> y)) {
+                std::cout << "{ \"type\": \"error\", \"message\": \"Formato DELETE inválido. Usa: DELETE x y\" }\n";
+                continue;
+            }
+
+            almacenamiento->resetCounters();
+
+            std::vector<SpatialIndex::id_type> ridsEliminados =
+                deletePorPunto(*arbol, x, y);
+
+            uint64_t reads = almacenamiento->getReadCount();
+            uint64_t writes = almacenamiento->getWriteCount();
+
+            for (SpatialIndex::id_type ridPacked : ridsEliminados) {
+                RID eliminado = desempaquetarRID(ridPacked);
+
+                puntos.erase(
+                    std::remove_if(
+                        puntos.begin(),
+                        puntos.end(),
+                        [&](const PuntoRegistro& p) {
+                            return p.rid.page == eliminado.page &&
+                                   p.rid.slot == eliminado.slot;
+                        }
+                    ),
+                    puntos.end()
+                );
+            }
+
+            std::cout << "\nJSON Delete para frontend:\n";
+            std::cout << construirJsonDelete(
+                ridsEliminados,
+                x,
+                y,
+                reads,
+                writes
+            ) << std::endl;
+        }
+
+        else {
+            std::cout << "{ \"type\": \"error\", \"message\": \"Comando desconocido: " << comando << "\" }\n";
+        }
+    }
+}
+
 int main() {
-    // Para que cada ejecución sea limpia.
-    // Si quieres persistencia real entre ejecuciones, elimina esta línea.
     std::remove("rtree_pages.dat");
 
-    auto* almacenamiento =new MiPagedDiskStorageManager("rtree_pages.dat");
+    auto* almacenamiento =
+        new MiPagedDiskStorageManager("rtree_pages.dat");
 
     SpatialIndex::id_type idIndice;
 
@@ -404,116 +617,10 @@ int main() {
             idIndice
         );
 
-    std::cout << "R-Tree creado correctamente." << std::endl;
-    std::cout << "ID del indice: " << idIndice << std::endl;
-
-    std::vector<PuntoRegistro> puntos = {
-        {1.0, 1.0, {10, 0}},
-        {2.0, 2.0, {10, 1}},
-        {8.0, 8.0, {11, 0}},
-        {4.0, 4.0, {11, 1}},
-        {1.0, 3.0, {12, 0}}
-    };
-
-    // ============================
-    // Prueba 0: inserciones
-    // ============================
-    almacenamiento->resetCounters();
-    insertarPuntosEnArbol(arbol, puntos);
-    imprimirIO("inserciones", almacenamiento);
-    almacenamiento->dumpPages();
-
-    double queryX = 1.0;
-    double queryY = 1.0;
-
-    double consultaCoords[] = {queryX, queryY};
-    SpatialIndex::Point puntoConsulta(consultaCoords, 2);
-
-    // ============================
-    // Prueba 1: rangeSearch(point, radio)
-    // ============================
-    double radio = 2.0;
-
-    almacenamiento->resetCounters();
-    std::vector<RID> resultadosRange =
-    rangeSearch(*arbol, queryX, queryY, radio);
-    uint64_t rangeReads = almacenamiento->getReadCount();
-    uint64_t rangeWrites = almacenamiento->getWriteCount();
-    imprimirResultadosRID("Resultados de rangeSearch desde (1,1) con radio 2.0:",resultadosRange);
-
-    imprimirIO("rangeSearch", almacenamiento);
-
-    std::string jsonRange = construirJsonRangeSearch(
-        puntos,
-        resultadosRange,
-        queryX,
-        queryY,
-        radio,
-        rangeReads,
-        rangeWrites
-    );
-
-    std::cout << "\nJSON RangeSearch para frontend:\n";
-    std::cout << jsonRange << std::endl;
-
-    // ============================
-    // Prueba 2: kNN(point, k)
-    // ============================
-    uint32_t k = 3;
-
-    almacenamiento->resetCounters();
-
-    std::vector<RID> resultadosKNN =
-    kNN(*arbol, puntoConsulta, k);
-
-    uint64_t knnReads = almacenamiento->getReadCount();
-    uint64_t knnWrites = almacenamiento->getWriteCount();
-
-    imprimirResultadosRID("Resultados de kNN desde (1,1) con k = 3:",resultadosKNN);
-    imprimirIO("kNN", almacenamiento);
-
-    std::string jsonKNN = construirJsonKNN(
-        puntos,
-        resultadosKNN,
-        queryX,
-        queryY,
-        k,
-        knnReads,
-        knnWrites
-    );
-
-    std::cout << "\nJSON kNN para frontend:\n";
-    std::cout << jsonKNN << std::endl;
+    ejecutarComandosDesdeStdin(arbol, almacenamiento);
 
     arbol->flush();
     almacenamiento->flush();
-
-
-    // ============================
-    // Prueba 3: delete buscando por (x, y)
-    // ============================
-    double deleteX = 2.0;
-    double deleteY = 2.0;
-
-    almacenamiento->resetCounters();
-
-    std::vector<SpatialIndex::id_type> ridsEliminados =deletePorPunto(*arbol, deleteX, deleteY);
-
-    uint64_t deleteReads = almacenamiento->getReadCount();
-    uint64_t deleteWrites = almacenamiento->getWriteCount();
-
-    imprimirResultados("Resultados de delete buscando el punto (2,2):",ridsEliminados);
-    imprimirIO("delete", almacenamiento);
-    std::string jsonDelete = construirJsonDelete(
-        ridsEliminados,
-        deleteX,
-        deleteY,
-        deleteReads,
-        deleteWrites
-    );
-
-    std::cout << "\nJSON Delete para frontend:\n";
-    std::cout << jsonDelete << std::endl;
 
     delete arbol;
     delete almacenamiento;
