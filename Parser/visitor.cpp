@@ -151,7 +151,7 @@ void EVALVisitor::visit(SelectStmt* s) {
                 if      (op == GEQ_OP || op == GER_OP) lo = val;
                 else if (op == LEQ_OP || op == LES_OP) hi = val;
                 vector<RID> raw = btree.rangeSearch(lo, hi);
-                // filtrar exacto para > y 
+                // filtrar exacto para > y
                 for (auto& rid : raw) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     string val_rec = deserializeField(rec.data + col_offset, col_tipo);
@@ -308,7 +308,7 @@ void EVALVisitor::visit(CreateTableStmt* s) {
     schema.close();
 
     // 2. Abrir CSV
-    ifstream csv( "input/"+ s->path);
+    ifstream csv(s->path);
     if (!csv.is_open()) {
         cerr << "No se pudo abrir: " << s->path << "\n";
         return;
@@ -792,7 +792,7 @@ vector<pair<string,string>> leerSchema(const string& path) {
         // separar nombre y tipo por ':'
         size_t pos = token.find(':');
         if (pos == string::npos) continue;
-        
+
         string nombre = token.substr(0, pos);
         string resto  = token.substr(pos + 1); // "INT PK INCREMENTAL" o "INT" o "CHAR(10)"
 
