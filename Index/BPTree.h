@@ -200,7 +200,7 @@ private:
         Page p = disk.read(child); asNode(p)->parent = parent; disk.write(child, p);
     }
 
-    // ── delete helpers ────────────────────────────────────────────
+    // delete helpers
 
     struct SiblingInfo { PageID siblingId; int separatorIdx; bool isLeft; };
 
@@ -386,7 +386,7 @@ public:
 
     PageID getRoot() const { return root; }
 
-    // ================= SEARCH =================
+    // SEARCH
     RID search(const TKey& key) const {
         PageID curr = root;
         while (true) {
@@ -411,7 +411,7 @@ public:
         }
     }
 
-    // ================= SEARCH ALL =================
+    // SEARCH ALL
     vector<RID> searchAll(const TKey& key) const { // mas a la izquierda de la llave q queremos
         vector<RID> res; 
 
@@ -454,13 +454,13 @@ public:
         return res;
     }
 
-    // ================= RANGE SEARCH =================
+    // RANGE SEARCH
     vector<RID> rangeSearch(const TKey& a, const TKey& b) const { // antes podria ir medio con duplicados, qremos mas izq
         if (b < a) return {};
 
         vector<RID> res;
 
-        // (lower_bound manual)
+        // lower_bound
         PageID curr = root;
 
         while (true) {
@@ -487,7 +487,7 @@ public:
                     stop = true;
                     break;
                 }
-                if (!(n->keys[i] < a)) { // >= a
+                if (!(n->keys[i] < a)) {
                     res.push_back(n->values[i]);
                 }
             }
@@ -499,7 +499,7 @@ public:
         return res;
     }
 
-    // ================= INSERT =================
+    // INSERT
     void insert(const TKey& key, const RID& rid) {
         insertIntoLeaf(findLeaf(key), key, rid);
     }
@@ -554,7 +554,7 @@ public:
         }
     }
 
-    // ================= DEBUG =================
+    // DEBUG
     void printLeaves() const {
         PageID curr = root;
         while (true) {
