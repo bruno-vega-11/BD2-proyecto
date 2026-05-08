@@ -173,6 +173,33 @@ void EVALVisitor::visit(SelectStmt* s) {
         }
     };
 
+    auto ehashSearch = [&](const string& col_name, const string& col_tipo,int col_offset,const string& val_str,BinaryOp op) -> vector<RID_h> {
+        string ehash_path = "archivos/"+s->table+"_"+col_name+".btree";
+        Diske disk(ehash_path);
+        vector<RID_h> rids;
+
+        if (op != EQUAL_OP) {
+            auto records = sf.scanAll();
+            for (auto& r : records) {
+                string val_rec = deserializeField(r.data + col_offset,col_tipo);
+                if (cumple(val_rec,val_str,col_tipo,op))
+                    printRecord(r);
+            }
+            return {};
+        }
+        if (col_tipo == "INT") {
+            ExtendibleHashing<int> ehash(disk);
+            rids = ehash.search_hash(stoi(val_str));
+        } else if (col_tipo == "FLOAT") {
+            ExtendibleHashing<float> ehash(disk);
+            rids = ehash.search_hash(stof(val_str));
+        } else if (col_tipo.find("CHAR") != string::npos) {
+            ExtendibleHashing<FixedString_H<64>> ehash(disk);
+            rids = ehash.search_hash(FixedString_H<64>(val_str));
+        }
+        return rids;
+    };
+
     if (s->where_cond == nullptr) {
         cout << "SequentialFile scanAll" << "\n";
         auto records = sf.scanAll();
@@ -218,6 +245,13 @@ void EVALVisitor::visit(SelectStmt* s) {
             if (idx_type == "btree") {
                 cout << "BTree" << "\n";
                 auto rids = btreeSearch(campo->value, col_tipo, col_offset, val_str, b->op);
+                for (auto& rid : rids) {
+                    RecordPointer ptr(false, rid.page_id, rid.slot);
+                    printRecord(sf.readByPointer(ptr));
+                }
+            } else if (idx_type == "ehash") {
+                cout << "ExtendibleHash" << "\n";
+                auto rids = ehashSearch(campo->value,col_tipo,col_offset,val_str,b->op);
                 for (auto& rid : rids) {
                     RecordPointer ptr(false, rid.page_id, rid.slot);
                     printRecord(sf.readByPointer(ptr));
@@ -433,8 +467,8 @@ void EVALVisitor::visit(InsertStmt* s) {
 }
 
 void EVALVisitor::visit(CreateIndexStmt* s) {
-    if (s->op != BTREE) {
-        cerr << "Solo BTREE implementado por ahora" << "\n";
+    if (s->op != BTREE && s->op != EHASH) {
+        cerr << "Solo BTREE e EHASH implementado por ahora" << "\n";
         return;
     }
 
@@ -457,37 +491,70 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
     SequentialFile<int> sf("archivos/"+s->tableName+".dat","archivos/"+s->tableName+"_aux.dat", 50);
     auto records = sf.scanAllWithPtr();
 
-    string btree_path = "archivos/"+s->tableName+"_"+s->indexName+".btree";
-    Disk disk(btree_path);
+    if (s->op == BTREE) {
+        string btree_path = "archivos/"+s->tableName+"_"+s->indexName+".btree";
+        Disk disk(btree_path);
 
-    if (col_tipo == "INT") {
-        BPlusTree<int> btree(disk);
-        for (auto& [rec, ptr] : records) {
-            int val; memcpy(&val, rec.data + col_offset, sizeof(int));
-            btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+        if (col_tipo == "INT") {
+            BPlusTree<int> btree(disk);
+            for (auto& [rec, ptr] : records) {
+                int val; memcpy(&val, rec.data + col_offset, sizeof(int));
+                btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+            }
+        }else if (col_tipo == "FLOAT") {
+            BPlusTree<float> btree(disk);
+            for (auto& [rec, ptr] : records) {
+                float val; memcpy(&val, rec.data + col_offset, sizeof(float));
+                btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+            }
+        } else if (col_tipo.find("CHAR") != string::npos) {
+            BPlusTree<FixedString<64>> btree(disk);
+            for (auto& [rec, ptr] : records) {
+                FixedString<64> val(rec.data + col_offset);
+                btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+            }
+        } else {
+            cerr << "Tipo '" << col_tipo << "' no soportado para indice" << "\n";
+            return;
         }
-    } else if (col_tipo == "FLOAT") {
-        BPlusTree<float> btree(disk);
-        for (auto& [rec, ptr] : records) {
-            float val; memcpy(&val, rec.data + col_offset, sizeof(float));
-            btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+        ofstream idx("archivos/"+s->tableName+".indexes", ios::app);
+        idx << s->indexName << ":btree:" << col_tipo << "\n";
+        idx.close();
+
+        cout << "Btree sobre '" << s->indexName<< "' tipo=" << col_tipo<< " en tabla '" << s->tableName << "\n";
+    } else if (s->op == EHASH) {
+        string ehash_path = "archivos/"+s->tableName+"_"+s->indexName+".ehash";
+        Diske diske(ehash_path);
+
+        if (col_tipo == "INT") {
+            ExtendibleHashing<int> ehash(diske);
+            for (auto& [rec, ptr] : records) {
+                int val; memcpy(&val, rec.data + col_offset, sizeof(int));
+                ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+            }
+        } else if (col_tipo == "FLOAT") {
+            ExtendibleHashing<float> ehash(diske);
+            for (auto& [rec, ptr] : records) {
+                float val; memcpy(&val, rec.data + col_offset, sizeof(float));
+                ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+            }
+        } else if (col_tipo.find("CHAR") != string::npos) {
+            ExtendibleHashing<FixedString_H<64>> ehash(diske);
+            for (auto& [rec, ptr] : records) {
+                FixedString_H<64> val(rec.data + col_offset);
+                ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+            }
+        } else {
+            cerr << "Tipo '" << col_tipo << "' no soportado para ehash\n";
+            return;
         }
-    } else if (col_tipo.find("CHAR") != string::npos) {
-        BPlusTree<FixedString<64>> btree(disk);
-        for (auto& [rec, ptr] : records) {
-            FixedString<64> val(rec.data + col_offset);
-            btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
-        }
-    } else {
-        cerr << "Tipo '" << col_tipo << "' no soportado para indice" << "\n";
-        return;
+
+        ofstream idx("archivos/"+s->tableName+".indexes", ios::app);
+        idx << s->indexName << ":ehash:" << col_tipo << "\n";
+        cout << "EHash sobre '" << s->indexName
+             << "' tipo=" << col_tipo
+             << " en tabla '" << s->tableName << "'\n";
     }
-
-    ofstream idx("archivos/"+s->tableName+".indexes", ios::app);
-    idx << s->indexName << ":btree:" << col_tipo << "\n";
-    idx.close();
-
-    cout << "Btree sobre '" << s->indexName<< "' tipo=" << col_tipo<< " en tabla '" << s->tableName << "\n";
 }
 
 void EVALVisitor::visit(DeleteStmt* s) {

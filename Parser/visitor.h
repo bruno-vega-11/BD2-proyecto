@@ -2,6 +2,7 @@
 #define VISITOR_H
 #include "ast.h"
 #include "../Files/SequentialFile.h"
+#include "../Index/ExtendibleHashing.h"
 #include "../Index/BPTree.h"
 
 class Visitor {
