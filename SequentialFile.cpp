@@ -536,4 +536,8 @@ Record<KeyType> SequentialFile<KeyType>::readByPointer(const RecordPointer& ptr)
 template class SequentialFile<int>;
 template void DiskManager::read_page<int>(long, SeqPage<int>&);
 template void DiskManager::write_page<int>(long, const SeqPage<int>&);
+
+template class SequentialFile<PointKey>;
+template void DiskManager::read_page<PointKey>(long, SeqPage<PointKey>&);
+template void DiskManager::write_page<PointKey>(long, const SeqPage<PointKey>&);
 //hola

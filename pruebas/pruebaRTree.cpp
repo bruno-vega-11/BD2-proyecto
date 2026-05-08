@@ -7,9 +7,9 @@
 #include <iomanip>
 #include <spatialindex/SpatialIndex.h>
 
-#include "RangeSearchVisitor.h"
-#include "KNNVisitor.h"
-#include "MiPagedDiskStorageManager.h"
+#include "../RangeSearchVisitor.h"
+#include "../KNNVisitor.h"
+#include "../MiPagedDiskStorageManager.h"
 
 struct PuntoRegistro {
     SpatialIndex::id_type id;
