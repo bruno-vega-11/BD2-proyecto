@@ -1,6 +1,8 @@
 === STDOUT ===
 Parseo exitoso
+BTree + SequentialFile remove
+Eliminados 1000 registros
+
+Tiempo de ejecuciÃ³n: 165 ms
 
 === STDERR ===
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  Registro no existe para eliminar
