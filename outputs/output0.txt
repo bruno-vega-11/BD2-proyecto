@@ -3,6 +3,6 @@ Parseo exitoso
 META no existe - archivo nuevo
 Tabla 'hola' creada con 3000 registros
 
-Tiempo de ejecuciÃ³n: 9403 ms
+Tiempo de ejecuciÃ³n: 6937 ms
 
 === STDERR ===

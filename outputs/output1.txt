@@ -3005,6 +3005,6 @@ id	dni	nombre	edad	genero	altura
 3000	10002999	Persona29	60	F	1.990000	
 Total: 3000 registros
 
-Tiempo de ejecuciÃ³n: 43 ms
+Tiempo de ejecuciÃ³n: 64 ms
 
 === STDERR ===

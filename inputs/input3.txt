@@ -1,1 +1,1 @@
-DELETE FROM hola WHERE edad = 40;
+SELECT * FROM hola where edad = 40;
