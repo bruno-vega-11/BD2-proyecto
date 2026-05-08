@@ -173,19 +173,21 @@ template<typename TKey>
 static constexpr int computeBucketCapacity() {
     // Overhead: count(int) + localDepth(int) + next(ptr) + useChaining(bool)
     constexpr int overhead = static_cast<int>(sizeof(int) + sizeof(int) + sizeof(PageID) + sizeof(bool));
-    return (PAGE_SIZE - overhead) / sizeof(TKey);
+    constexpr int leafEntry= static_cast<int>(sizeof(TKey) + sizeof(RID));
+    return (PAGE_SIZE - overhead) / leafEntry;
 }
 
 
 template<typename TKey>
 struct BucketPage {
-    int count = 0;
-    int  localDepth = 0;
-    PageID nextPage = NULL_PAGE;
-    bool useChaining = false;
+    int count ;
+    int  localDepth;
+    PageID nextPage;
+    bool useChaining;
 
     static constexpr int BUCKET_SIZE = computeBucketCapacity<TKey>();
     TKey keys[BUCKET_SIZE];
+    RID  values[BUCKET_SIZE];
 
 };
 
@@ -201,12 +203,12 @@ private:
     vector<PageID> directory;  // en memoria mientras corre
     PageID dirPageId = NULL_PAGE;          // pagina donde se serializa el vector (disco)
 
-    int getIndex(TKey key) {
+    int getIndex(const TKey& key) {
         size_t h = hash<TKey>{}(key);
         return h & ((1 << D) - 1);     // se queda con los ultimos bits, para mapearlo en mi directorio
     }
 
-    size_t getHash(TKey key) {
+    size_t getHash(const TKey& key) {
         return hash<TKey>{}(key);     // aplica el hash nada mas, sin hayar su lugar en directory
     }
 
@@ -316,74 +318,6 @@ public:
         saveDirectory();
     }
 
-    void add_hash(TKey key) {
-        int index = getIndex(key);
-        PageID targetId = directory[index];
-
-        Page p = disk.read(targetId);  // lees pagina
-        BucketT* b = asBucket(p);   // cast:pagina -> bucket
-
-        // si esta lleno y no hay chaining
-        if (isFull(b) && !b->useChaining) {
-            split(index); // falta arreglar
-            add_hash(key);
-            return;
-        }
-        // si esta lleno y hay chaining:
-        while (isFull(b) && b->useChaining) {
-            if (b->nextPage == NULL_PAGE) {
-                b->nextPage = disk.alloc();  // crear siguiente bucket
-                disk.write(targetId,p);      //
-
-                PageID newId = b->nextPage;
-                Page   np    = disk.read(newId);
-                BucketT* nb  = asBucket(np);
-                nb->localDepth  = b->localDepth;
-                nb->count       = 0;
-                nb->nextPage    = NULL_PAGE;
-                nb->useChaining = true;
-                disk.write(newId, np);
-            }
-            PageID nextId = b->nextPage;
-            p = disk.read(nextId);
-            b = asBucket(p);
-            targetId = nextId;
-        }
-        b->keys[b->count++] = key;
-        disk.write(targetId,p);
-    }
-
-    vector<RID> search_hash(const TKey& key) {
-        vector<RID> result;
-        int index = getIndex(key);
-        PageID target = directory[index];
-
-        while (target != NULL_PAGE) {
-            Page p = disk.read(target);
-            BucketT* current = asBucket(p);
-
-            for (int i = 0 ; i < current->count ; i++) {
-                if (key == current->keys[i]) {
-                    result.push_back({target,i});
-                }
-            }
-            target = current->nextPage;
-        }
-        return result;
-    }
-
-    void delete_hash(const TKey& key){
-        int index = getIndex(key);
-        PageID target = directory[index];
-
-        bool borrado = delete_aux(key,target);
-
-        if (!borrado) {
-            cout << "No se encontro la llave a borrar";
-        }
-        //try_merge(bucket,index);
-    }
-
     bool delete_aux(const TKey& key,PageID cubetaId) {
         while (cubetaId != NULL_PAGE) {
             Page p = disk.read(cubetaId);
@@ -403,6 +337,113 @@ public:
         }
         return false;
     }
+
+    PageID findOrMakeBucket(const TKey& key) {
+        while (true) {
+            int    index    = getIndex(key);
+            PageID targetId = directory[index];
+            PageID prevId   = NULL_PAGE;
+
+            while (targetId != NULL_PAGE) {
+                Page     p       = disk.read(targetId);
+                BucketT* current = asBucket(p);
+
+                if (!isFull(current)) return targetId;
+
+                prevId   = targetId;
+                targetId = current->nextPage;
+            }
+
+            // todos llenos — leer el bucket raíz para ver si tiene chaining
+            Page     p = disk.read(directory[index]);
+            BucketT* b = asBucket(p);
+
+            if (!b->useChaining) {
+                split(index);
+                continue;  // reintentar desde el inicio
+            }
+
+            Page     pp = disk.read(prevId);
+            BucketT* pb = asBucket(pp);
+
+            PageID newId    = disk.alloc();
+            Page   np       = disk.read(newId);
+            BucketT* nb     = asBucket(np);
+            nb->count       = 0;
+            nb->localDepth  = pb->localDepth;
+            nb->nextPage    = NULL_PAGE;
+            nb->useChaining = true;
+            disk.write(newId, np);
+
+            pb->nextPage = newId;
+            disk.write(prevId, pp);
+            return newId;
+        }
+    }
+
+    void insertIntoBucket(PageID page_id,const TKey& key,const RID& rid) {
+        Page p = disk.read(page_id);
+        BucketT* b = asBucket(p);
+        b->keys [b->count] = key;
+        b->values[b->count] = rid;
+        b->count++;
+        disk.write(page_id,p);
+    }
+
+    // -------------- insert fix -----------------
+    void insert_hash(const TKey& key, const RID& rid) {
+        insertIntoBucket(findOrMakeBucket(key),key,rid);
+    }
+
+    // --------------- search-hash ----------------
+    vector<RID> search_hash(const TKey& key) {
+        vector<RID> result;
+        int index = getIndex(key);
+        PageID target = directory[index];
+
+        while (target != NULL_PAGE) {
+            Page p = disk.read(target);
+            BucketT* current = asBucket(p);
+
+            for (int i = 0 ; i < current->count ; i++) {
+                if (key == current->keys[i]) {
+                    result.push_back({current->values[i]});
+                }
+            }
+            target = current->nextPage;
+        }
+        return result;
+    }
+
+    // ---------------- remove-hash -----------
+    void delete_hash(const TKey& key, const RID& target) {
+        int    index  = getIndex(key);
+        PageID currId = directory[index];
+
+        while (currId != NULL_PAGE) {
+            Page     p      = disk.read(currId);
+            BucketT* bucket = asBucket(p);
+
+            for (int i = 0; i < bucket->count; i++) {
+                if (bucket->keys[i]        == key            &&
+                    bucket->values[i].page_id == target.page_id &&
+                    bucket->values[i].slot    == target.slot)
+                {
+                    // shift left para tapar el hueco
+                    for (int j = i; j+1 < bucket->count; j++) {
+                        bucket->keys  [j] = bucket->keys  [j+1];
+                        bucket->values[j] = bucket->values[j+1];
+                    }
+                    bucket->count--;
+                    disk.write(currId, p);
+                    return;
+                }
+            }
+            currId = bucket->nextPage;
+        }
+        cout << "No se encontro la entrada a borrar\n";
+    }
+
 
     // helpers:
     BucketT* asBucket(Page& p) {
