@@ -9,16 +9,67 @@
 
 using namespace std;
 
-struct RID {int page_id ; int slot;};
-static constexpr RID NULLRID  = {-1,-1};
-inline bool isNullRID(const RID& r) {return r.page_id == -1 && r.slot == -1;}
+struct RID_h {int page_id ; int slot;};
+static constexpr RID_h NULLRID  = {-1,-1};
+inline bool isNullRID(const RID_h& r) {return r.page_id == -1 && r.slot == -1;}
 
-static constexpr int PAGE_SIZE = 4096;
+static constexpr int PAGE_SIZE_H = 4096;
 using PageID = int;
-static constexpr PageID NULL_PAGE = -1;
-struct Page { char data[PAGE_SIZE]; };
+static constexpr PageID NULL_PAGE_H = -1;
+struct Page_h { char data[PAGE_SIZE_H]; };
 
 static constexpr int DLIMIT       = 16;
+//--------------------------------FixedString---------------------------------------
+template<int N>
+struct FixedString_H {
+    char data[N];
+
+    FixedString_H() {
+        memset(data, 0, N);
+    }
+
+    FixedString_H(const char* s) {
+        memset(data, 0, N);
+        memcpy(data, s, min((int)strlen(s), N));
+    }
+
+    FixedString_H(const std::string& s) {
+        memset(data, 0, N);
+        memcpy(data, s.c_str(), min((int)s.size(), N));
+    }
+
+    bool operator<(const FixedString_H& other) const {
+        return strncmp(data, other.data, N) < 0;
+    }
+
+    bool operator>(const FixedString_H& other) const {
+        return strncmp(data, other.data, N) > 0;
+    }
+
+    bool operator==(const FixedString_H& other) const {
+        return strncmp(data, other.data, N) == 0;
+    }
+
+    bool operator<=(const FixedString_H& other) const {
+        return !(*this > other);
+    }
+
+    bool operator>=(const FixedString_H& other) const {
+        return !(*this < other);
+    }
+};
+namespace std {
+    template<int N>
+    struct hash<FixedString_H<N>> {
+        size_t operator()(const FixedString_H<N>& fs) const {
+            size_t h = 0;
+            for (int i = 0; i < N && fs.data[i] != '\0'; i++) {
+                h = h * 31 + static_cast<unsigned char>(fs.data[i]);
+            }
+            return h;
+        }
+    };
+}
 //-----------------------------------DISK---------------------------------------------
 
 //Página 0  →  meta (nextPage + dirPageId + D)
@@ -41,15 +92,15 @@ private:
         file.seekg(0,ios::end);
         streamsize sz = file.tellg();
 
-        if (sz < PAGE_SIZE) {
+        if (sz < PAGE_SIZE_H) {
             nextPage = 1;
-            saveMeta(NULL_PAGE,1);
+            saveMeta(NULL_PAGE_H,1);
             return;
         }
-        Page p{};
+        Page_h p{};
         file.clear();
         file.seekg(0);
-        file.read(p.data, PAGE_SIZE);
+        file.read(p.data, PAGE_SIZE_H);
         memcpy(&nextPage, p.data + META_OFFSET_NEXT,sizeof(int));
     }
 
@@ -64,23 +115,23 @@ public:
         loadMeta();
     }
 
-    Page read(PageID id) {
+    Page_h read(PageID id) {
         ++readCount;
-        Page p{};
+        Page_h p{};
         file.clear();
-        file.seekg((long long)id * PAGE_SIZE);
-        file.read(p.data, PAGE_SIZE);
+        file.seekg((long long)id * PAGE_SIZE_H);
+        file.read(p.data, PAGE_SIZE_H);
         if (!file) {
             cerr << "ERROR: read fallo en página " << id << "\n";
         }
         return p;
     }
 
-    void write(PageID id, const Page& p) {
+    void write(PageID id, const Page_h& p) {
         ++writeCount;
         file.clear();
-        file.seekp((long long)id * PAGE_SIZE);
-        file.write(p.data, PAGE_SIZE);
+        file.seekp((long long)id * PAGE_SIZE_H);
+        file.write(p.data, PAGE_SIZE_H);
         file.flush();
         if (!file) {
             cerr << "ERROR: write fallo en página " << id << "\n";
@@ -89,22 +140,22 @@ public:
 
     PageID alloc() {
         PageID id = nextPage++;
-        Page p{};
+        Page_h p{};
         write(id, p);       // inicializar la página en disco
         return id;
     }
 
     void saveMeta(PageID dirPageId, int D) {
-        Page p{};
+        Page_h p{};
 
         file.clear();
         file.seekg(0, ios::end);
         streamsize sz = file.tellg();
 
-        if (sz >= PAGE_SIZE) {
+        if (sz >= PAGE_SIZE_H) {
             file.clear();
             file.seekg(0);
-            file.read(p.data, PAGE_SIZE);
+            file.read(p.data, PAGE_SIZE_H);
         }
         memcpy(p.data + META_OFFSET_NEXT,    &nextPage,  sizeof(int));
         memcpy(p.data + META_OFFSET_DIRPAGE, &dirPageId, sizeof(PageID));
@@ -112,16 +163,16 @@ public:
 
         file.clear();
         file.seekp(0);
-        file.write(p.data, PAGE_SIZE);
+        file.write(p.data, PAGE_SIZE_H);
         file.flush();
     }
 
     pair<PageID, int> loadMetaValues() {
-        Page p{};
+        Page_h p{};
         file.seekg(0);
-        file.read(p.data, PAGE_SIZE);
+        file.read(p.data, PAGE_SIZE_H);
 
-        PageID dirPageId = NULL_PAGE;
+        PageID dirPageId = NULL_PAGE_H;
         int    D         = 1;
         memcpy(&dirPageId, p.data + META_OFFSET_DIRPAGE, sizeof(PageID));
         memcpy(&D,         p.data + META_OFFSET_D,       sizeof(int));
@@ -130,10 +181,10 @@ public:
     }
 
     void saveDirectory(PageID& dirPageId,int D,const vector<PageID>& directory) {
-        if (dirPageId == NULL_PAGE)
+        if (dirPageId == NULL_PAGE_H)
             dirPageId = alloc();
 
-        Page p{};
+        Page_h p{};
         int size = (int)directory.size();
         memcpy(p.data, &size, sizeof(int));
         for (int i = 0; i < size; i++)
@@ -146,9 +197,9 @@ public:
 
     vector<PageID> loadDirectory(PageID dirPageId) {
         vector<PageID> directory;
-        if (dirPageId == NULL_PAGE) return directory;
+        if (dirPageId == NULL_PAGE_H) return directory;
 
-        Page p   = read(dirPageId);
+        Page_h p   = read(dirPageId);
         int size = 0;
         memcpy(&size, p.data, sizeof(int));
 
@@ -173,8 +224,8 @@ template<typename TKey>
 static constexpr int computeBucketCapacity() {
     // Overhead: count(int) + localDepth(int) + next(ptr) + useChaining(bool)
     constexpr int overhead = static_cast<int>(sizeof(int) + sizeof(int) + sizeof(PageID) + sizeof(bool));
-    constexpr int leafEntry= static_cast<int>(sizeof(TKey) + sizeof(RID));
-    return (PAGE_SIZE - overhead) / leafEntry;
+    constexpr int leafEntry= static_cast<int>(sizeof(TKey) + sizeof(RID_h));
+    return (PAGE_SIZE_H - overhead) / leafEntry;
 }
 
 
@@ -187,7 +238,7 @@ struct BucketPage {
 
     static constexpr int BUCKET_SIZE = computeBucketCapacity<TKey>();
     TKey keys[BUCKET_SIZE];
-    RID  values[BUCKET_SIZE];
+    RID_h  values[BUCKET_SIZE];
 
 };
 
@@ -201,7 +252,7 @@ private:
     Diske& disk;
     int D = 1; // global depth [1-16]
     vector<PageID> directory;  // en memoria mientras corre
-    PageID dirPageId = NULL_PAGE;          // pagina donde se serializa el vector (disco)
+    PageID dirPageId = NULL_PAGE_H;          // pagina donde se serializa el vector (disco)
 
     int getIndex(const TKey& key) {
         size_t h = hash<TKey>{}(key);
@@ -216,7 +267,7 @@ public:
 
     explicit ExtendibleHashing(Diske& d): disk(d) {
         auto [dp, loadedD] = disk.loadMetaValues();
-        if (dp == NULL_PAGE) {
+        if (dp == NULL_PAGE_H) {
             // primera vez — archivo nuevo
             D = 1;
             int size = 1 << D;
@@ -224,11 +275,11 @@ public:
 
             // crear el único bucket inicial
             PageID firstBucket = disk.alloc();
-            Page   p           = disk.read(firstBucket);
+            Page_h   p           = disk.read(firstBucket);
             BucketT* b         = asBucket(p);
             b->count           = 0;
             b->localDepth      = 0;
-            b->nextPage        = NULL_PAGE;
+            b->nextPage        = NULL_PAGE_H;
             b->useChaining     = false;
             disk.write(firstBucket, p);
 
@@ -259,7 +310,7 @@ public:
 
     void split(int index) {
         PageID oldId = directory[index];
-        Page p = disk.read(oldId);
+        Page_h p = disk.read(oldId);
         BucketT* oldBucket = asBucket(p);
 
         if (oldBucket->localDepth == D) {
@@ -290,11 +341,11 @@ public:
 
         // creando nuevo bucket
         PageID newId = disk.alloc();
-        Page np = disk.read(newId);
+        Page_h np = disk.read(newId);
         BucketT* newBucket = asBucket(np);
         newBucket->localDepth = newLocalDepth;
         newBucket->count = 0;
-        newBucket->nextPage = NULL_PAGE;
+        newBucket->nextPage = NULL_PAGE_H;
         newBucket->useChaining = false;
         disk.write(newId,np);
 
@@ -309,7 +360,7 @@ public:
             size_t h = getHash(k);
             PageID destId = (h & splitBit) ? newId : oldId;
 
-            Page dp = disk.read(destId);
+            Page_h dp = disk.read(destId);
             BucketT* db = asBucket(dp);
             db->keys[db->count++] = k;
             disk.write(destId,dp);
@@ -319,8 +370,8 @@ public:
     }
 
     bool delete_aux(const TKey& key,PageID cubetaId) {
-        while (cubetaId != NULL_PAGE) {
-            Page p = disk.read(cubetaId);
+        while (cubetaId != NULL_PAGE_H) {
+            Page_h p = disk.read(cubetaId);
             BucketT* cubeta = asBucket(p);
 
             for (int i = 0; i < cubeta->count; i++) {
@@ -342,10 +393,10 @@ public:
         while (true) {
             int    index    = getIndex(key);
             PageID targetId = directory[index];
-            PageID prevId   = NULL_PAGE;
+            PageID prevId   = NULL_PAGE_H;
 
-            while (targetId != NULL_PAGE) {
-                Page     p       = disk.read(targetId);
+            while (targetId != NULL_PAGE_H) {
+                Page_h     p       = disk.read(targetId);
                 BucketT* current = asBucket(p);
 
                 if (!isFull(current)) return targetId;
@@ -355,7 +406,7 @@ public:
             }
 
             // todos llenos — leer el bucket raíz para ver si tiene chaining
-            Page     p = disk.read(directory[index]);
+            Page_h     p = disk.read(directory[index]);
             BucketT* b = asBucket(p);
 
             if (!b->useChaining) {
@@ -363,15 +414,15 @@ public:
                 continue;  // reintentar desde el inicio
             }
 
-            Page     pp = disk.read(prevId);
+            Page_h     pp = disk.read(prevId);
             BucketT* pb = asBucket(pp);
 
             PageID newId    = disk.alloc();
-            Page   np       = disk.read(newId);
+            Page_h   np       = disk.read(newId);
             BucketT* nb     = asBucket(np);
             nb->count       = 0;
             nb->localDepth  = pb->localDepth;
-            nb->nextPage    = NULL_PAGE;
+            nb->nextPage    = NULL_PAGE_H;
             nb->useChaining = true;
             disk.write(newId, np);
 
@@ -381,8 +432,8 @@ public:
         }
     }
 
-    void insertIntoBucket(PageID page_id,const TKey& key,const RID& rid) {
-        Page p = disk.read(page_id);
+    void insertIntoBucket(PageID page_id,const TKey& key,const RID_h& rid) {
+        Page_h p = disk.read(page_id);
         BucketT* b = asBucket(p);
         b->keys [b->count] = key;
         b->values[b->count] = rid;
@@ -391,18 +442,18 @@ public:
     }
 
     // -------------- insert fix -----------------
-    void insert_hash(const TKey& key, const RID& rid) {
+    void insert_hash(const TKey& key, const RID_h& rid) {
         insertIntoBucket(findOrMakeBucket(key),key,rid);
     }
 
     // --------------- search-hash ----------------
-    vector<RID> search_hash(const TKey& key) {
-        vector<RID> result;
+    vector<RID_h> search_hash(const TKey& key) {
+        vector<RID_h> result;
         int index = getIndex(key);
         PageID target = directory[index];
 
-        while (target != NULL_PAGE) {
-            Page p = disk.read(target);
+        while (target != NULL_PAGE_H) {
+            Page_h p = disk.read(target);
             BucketT* current = asBucket(p);
 
             for (int i = 0 ; i < current->count ; i++) {
@@ -416,12 +467,12 @@ public:
     }
 
     // ---------------- remove-hash -----------
-    void delete_hash(const TKey& key, const RID& target) {
+    void delete_hash(const TKey& key, const RID_h& target) {
         int    index  = getIndex(key);
         PageID currId = directory[index];
 
-        while (currId != NULL_PAGE) {
-            Page     p      = disk.read(currId);
+        while (currId != NULL_PAGE_H) {
+            Page_h     p      = disk.read(currId);
             BucketT* bucket = asBucket(p);
 
             for (int i = 0; i < bucket->count; i++) {
@@ -446,7 +497,7 @@ public:
 
 
     // helpers:
-    BucketT* asBucket(Page& p) {
+    BucketT* asBucket(Page_h& p) {
         return reinterpret_cast<BucketT*>(p.data);
     }
     bool isFull(BucketT* b) const { return b->count >= BucketT::BUCKET_SIZE;}
