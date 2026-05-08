@@ -528,9 +528,7 @@ void SequentialFile<KeyType>::remove(KeyType key) {
 }
 
 template <typename KeyType>
-void SequentialFile<KeyType>::remove(std::pair<long, int> target) {
-    long page_id = target.first;
-    int slot = target.second;
+void SequentialFile<KeyType>::remove(long page_id, int slot) {
     bool eliminado = false;
 
     // 1. Intentamos eliminar en el archivo principal (datos.dat)
