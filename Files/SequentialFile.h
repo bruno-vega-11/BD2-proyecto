@@ -149,6 +149,9 @@ public:
     void save_meta(); // Guarda el estado actual rápido en disco
 
     void remove(KeyType key);
+
+    //nuevo remove con parametro de posicion fisica
+    void remove(long page_id, int slot);
     std::vector<Record<KeyType>> rangeSearch(KeyType begin_key, KeyType end_key);
     void rebuild();
     std::vector<Record<KeyType>> scanAll();
@@ -173,6 +176,8 @@ public:
     std::vector<std::pair<Record<KeyType>, RecordPointer>> scanAllWithPtr();
 
     Record<KeyType> readByPointer(const RecordPointer& ptr);
+
+
 };
 
 #endif // SEQUENTIAL_FILE_H
