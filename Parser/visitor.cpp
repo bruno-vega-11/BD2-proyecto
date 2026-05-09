@@ -174,7 +174,7 @@ void EVALVisitor::visit(SelectStmt* s) {
     };
 
     auto ehashSearch = [&](const string& col_name, const string& col_tipo,int col_offset,const string& val_str,BinaryOp op) -> vector<RID_h> {
-        string ehash_path = "archivos/"+s->table+"_"+col_name+".btree";
+        string ehash_path = "archivos/"+s->table+"_"+col_name+".ehash";
         Diske disk(ehash_path);
         vector<RID_h> rids;
 
