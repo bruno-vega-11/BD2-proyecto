@@ -1,0 +1,1 @@
+id:INT PK INCREMENTAL,nombre:CHAR(20),ubicacion:POINT
