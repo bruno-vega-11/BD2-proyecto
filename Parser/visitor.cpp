@@ -423,13 +423,17 @@ void EVALVisitor::visit(InsertStmt* s) {
 
     // serializar
     char buffer[64] = {0};
-    int offset = 0;
-    int i = 0;
-    for (Exp* e : s->values) {
-        string val = getExpValue(e);
-        serializeField(buffer + offset, val, cols[i].second);
-        offset += getTypeSize(cols[i].second);
-        i++;
+    int off = 0;
+    auto it = s->values.begin();
+    for (auto& col : cols) {
+        if (it == s->values.end()) {
+            cerr << "Error: menos valores que columnas\n";
+            return;
+        }
+        string val = getExpValue(*it);
+        serializeField(buffer + off, val, col.second);
+        off += getTypeSize(col.second);
+        ++it;
     }
 
     SequentialFile<int> sf("archivos/"+s->table_name+".dat","archivos/"+s->table_name+"_aux.dat", 50);
@@ -446,7 +450,7 @@ void EVALVisitor::visit(InsertStmt* s) {
         cout << "Rebuild detectado" << "\n";
         reconstruirIndices(s->table_name, cols, sf);
     } else {
-        int off = 0;
+        int off2 = 0;
         for (auto& col : cols) {
             auto [idx_type, idx_col_tipo] = getIndexInfo(s->table_name, col.first);
             if (idx_type == "btree") {
@@ -454,35 +458,35 @@ void EVALVisitor::visit(InsertStmt* s) {
                 Disk disk(btree_path);
                 if (col.second == "INT") {
                     BPlusTree<int> btree(disk);
-                    int val; memcpy(&val, buffer + off, sizeof(int));
+                    int val; memcpy(&val, buffer + off2, sizeof(int));
                     btree.insert(val, RID{(int)page_id, slot});
                 } else if (col.second == "FLOAT") {
                     BPlusTree<float> btree(disk);
-                    float val; memcpy(&val, buffer + off, sizeof(float));
+                    float val; memcpy(&val, buffer + off2, sizeof(float));
                     btree.insert(val, RID{(int)page_id, slot});
                 } else if (col.second.find("CHAR") != string::npos) {
                     BPlusTree<FixedString<64>> btree(disk);
-                    FixedString<64> val(buffer + off);
+                    FixedString<64> val(buffer + off2);
                     btree.insert(val, RID{(int)page_id, slot});
                 }
-            } else if (idx_type == "ehash") {
+            } else if (idx_type == "ehash") { // + 1000 aura
                 string ehash_path = "archivos/"+s->table_name+"_"+col.first+".ehash";
                 Diske disk(ehash_path);
                 if (col.second == "INT") {
                     ExtendibleHashing<int> ehash(disk);
-                    int val; memcpy(&val,buffer+off,sizeof(int));
+                    int val; memcpy(&val,buffer+off2,sizeof(int));
                     ehash.insert_hash(val,RID_h{(int)page_id,slot});
                 }else if (col.second == "FLOAT") {
                     ExtendibleHashing<float> ehash(disk);
-                    float val; memcpy(&val,buffer+off,sizeof(float));
+                    float val; memcpy(&val,buffer+off2,sizeof(float));
                     ehash.insert_hash(val,RID_h{(int)page_id,slot});
                 } else if (col.second.find("CHAR") != string::npos) {
                     ExtendibleHashing<FixedString_H<64>> ehash(disk);
-                    FixedString_H<64> val(buffer + off);
+                    FixedString_H<64> val(buffer + off2);
                     ehash.insert_hash(val,RID_h{(int)page_id,slot});
                 }
             }
-            off += getTypeSize(col.second);
+            off2 += getTypeSize(col.second);
         }
     }
 }
