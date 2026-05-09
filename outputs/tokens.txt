@@ -3,12 +3,11 @@ Scanner
 TOKEN(SELECT, "select")
 TOKEN(*,"*")
 TOKEN(FROM, "from")
-TOKEN(ID, "employees")
+TOKEN(ID, "hola")
 TOKEN(WHERE, "where")
-TOKEN(ID, "genero")
+TOKEN(ID, "dni")
 TOKEN(EQUAL, "=")
-TOKEN(CHAR_LIT, "F")
-TOKEN(PCOMA, ";")
+TOKEN(INT_LIT, "54641423")
 TOKEN(END)
 
 Scanner exitoso

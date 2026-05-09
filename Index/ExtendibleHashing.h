@@ -353,18 +353,13 @@ public:
     Page_h oldPage = disk.read(oldId);
     BucketT* oldBucket = asBucket(oldPage);
 
-    cerr << "[SPLIT] index=" << index << " oldId=" << oldId
-         << " localDepth=" << oldBucket->localDepth
-         << " D=" << D << " count=" << oldBucket->count << "\n";
 
     if (oldBucket->localDepth == D) {
         if (D >= DLIMIT) {
-            cerr << "[SPLIT] DLIMIT alcanzado — activando chaining en bucket " << oldId << "\n";
             oldBucket->useChaining = true;
             disk.write(oldId, oldPage);
             return;
         }
-        cerr << "[SPLIT] expandiendo directorio D=" << D << " -> " << D+1 << "\n";
         expandDirectory();
         oldPage   = disk.read(oldId);
         oldBucket = asBucket(oldPage);
@@ -373,7 +368,6 @@ public:
     int newLocalDepth = oldBucket->localDepth + 1;
     int splitBit      = 1 << (newLocalDepth - 1);
 
-    // ✅ DIAGNÓSTICO antes de vaciar el bucket
     {
         int goOld = 0, goNew = 0;
         for (int i = 0; i < oldBucket->count; i++) {
@@ -382,21 +376,13 @@ public:
             if (fullIdx & splitBit) goNew++;
             else                    goOld++;
         }
-        cerr << "[SPLIT] pre-redistribucion: newLocalDepth=" << newLocalDepth
-             << " splitBit=" << splitBit
-             << " → OLD=" << goOld << " NEW=" << goNew << "\n";
 
         // si todos van al mismo lado, el hash es identidad
         if (goOld == 0 || goNew == 0) {
             // mostrar los primeros 5 hashes para confirmarlo
-            cerr << "[SPLIT] ⚠ TODOS AL MISMO LADO — primeros 5 hashes:\n";
             for (int i = 0; i < min(5, (int)oldBucket->count); i++) {
                 size_t h       = getHash(oldBucket->keys[i]);
                 int    fullIdx = (int)(h & ((1 << newLocalDepth) - 1));
-                cerr << "  key=" << oldBucket->keys[i]
-                     << " hash=" << h
-                     << " fullIdx=" << fullIdx
-                     << " bit=" << ((fullIdx & splitBit) ? 1 : 0) << "\n";
             }
         }
     }
@@ -430,7 +416,6 @@ public:
         BucketT* db     = asBucket(destPage);
 
         if (db->count >= BucketT::BUCKET_SIZE) {
-            cerr << "[SPLIT] overflow en redistribucion — activando chaining bucket " << destId << "\n";
             db->useChaining = true;
             disk.write(destId, destPage);
 
@@ -457,14 +442,11 @@ public:
         disk.write(destId, destPage);
     }
 
-    // ✅ DIAGNÓSTICO resultado final
     {
         Page_h op2 = disk.read(oldId);
         BucketT* ob2 = asBucket(op2);
         Page_h np2 = disk.read(newId);
         BucketT* nb2 = asBucket(np2);
-        cerr << "[SPLIT] resultado: oldId=" << oldId << " count=" << ob2->count
-             << " | newId=" << newId << " count=" << nb2->count << "\n";
     }
 
     saveDirectory();
@@ -541,19 +523,11 @@ public:
         int    index  = getIndex(key);
         PageID currId = directory[index];
 
-        cerr << "[SEARCH] key hash=" << getHash(key)
-         << " index=" << index << "\n";
 
         while (currId != NULL_PAGE_H) {
             Page_h   p       = disk.read(currId);
             BucketT* current = asBucket(p);
-
-            cerr << "[SEARCH] bucket=" <<currId
-             << " count=" << current->count << "\n";
-
             for (int i = 0; i < current->count; i++) {
-                cerr << "[SEARCH]   stored key hash=" << getHash(current->keys[i])
-                 << " match=" << (key == current->keys[i]) << "\n";
                 if (key == current->keys[i])
                     result.push_back(current->values[i]);
             }

@@ -1,4 +1,4 @@
-
+/*
 #include <iostream>
 #include <vector>
 #include <cstdio>
@@ -399,4 +399,4 @@ int main() {
     delete almacenamiento;
 
     return 0;
-}
+}*/

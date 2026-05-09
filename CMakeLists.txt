@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-add_subdirectory(libspatialindex)
 
 
 add_executable(Proyecto main.cpp
@@ -17,7 +16,6 @@ add_executable(Proyecto main.cpp
         Parser/token.cpp
         Parser/visitor.cpp
         Index/BPTree.cpp
-        pruebas/pruebaBPTree.cpp
         Files/SequentialFile.cpp
         Index/ExtendibleHashing.h
-        pruebas/pruebaEHashing.cpp)
+        )

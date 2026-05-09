@@ -1,7 +1,0 @@
-=== STDOUT ===
-Parseo exitoso
-Insertado en 'hola'
-
-Tiempo de ejecución: 1 ms
-
-=== STDERR ===
