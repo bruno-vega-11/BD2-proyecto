@@ -646,7 +646,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     int val_rec; memcpy(&val_rec, rec.data + col_offset, sizeof(int));
                     btree.removeByRID(val_rec, rid);
-                    sf.remove(rec.key);
+                    sf.remove(rid.page_id,rid.slot);
                 }
 
             } else if (col_tipo == "FLOAT") {
@@ -665,7 +665,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     float val_rec; memcpy(&val_rec, rec.data + col_offset, sizeof(float));
                     if (!cumpleCondicion(to_string(val_rec), val_str, col_tipo, b->op)) continue;
                     btree.removeByRID(val_rec, rid);
-                    sf.remove(rec.key);
+                    sf.remove(rid.page_id,rid.slot);
                 }
 
             } else if (col_tipo.find("CHAR") != string::npos) {
@@ -685,7 +685,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     if (!cumpleCondicion(val_rec, val_str, col_tipo, b->op)) continue;
                     FixedString<64> val_fs(val_rec);
                     btree.removeByRID(val_fs, rid);
-                    sf.remove(rec.key);
+                    sf.remove(rid.page_id,rid.slot);
                 }
             }
             cout << "Eliminados " << rids.size() << " registros" << "\n";
@@ -741,7 +741,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 for (auto& rid : rids) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     int val; memcpy(&val, rec.data + col_offset, sizeof(int));
-                    sf.remove(rec.key);
+                    sf.remove(rid.page_id,rid.slot);
                     btree.removeByRID(val, rid);
                 }
             } else if (col_tipo == "FLOAT") {
@@ -750,7 +750,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 for (auto& rid : rids) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     float val; memcpy(&val, rec.data + col_offset, sizeof(float));
-                    sf.remove(rec.key);
+                    sf.remove(rid.page_id,rid.slot);
                     btree.removeByRID(val, rid);
                 }
             } else if (col_tipo.find("CHAR") != string::npos) {
@@ -760,7 +760,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     Record<int> rec = sf.readByPointer(RecordPointer(false, rid.page_id, rid.slot));
                     string val_rec = deserializeField(rec.data + col_offset, col_tipo);
                     FixedString<64> val(val_rec);
-                    sf.remove(rec.key);
+                    sf.remove(rid.page_id,rid.slot);
                     btree.removeByRID(val, rid);
                 }
             }
