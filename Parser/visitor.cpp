@@ -178,15 +178,6 @@ void EVALVisitor::visit(SelectStmt* s) {
         Diske disk(ehash_path);
         vector<RID_h> rids;
 
-        if (op != EQUAL_OP) {
-            auto records = sf.scanAll();
-            for (auto& r : records) {
-                string val_rec = deserializeField(r.data + col_offset,col_tipo);
-                if (cumple(val_rec,val_str,col_tipo,op))
-                    printRecord(r);
-            }
-            return {};
-        }
         if (col_tipo == "INT") {
             ExtendibleHashing<int> ehash(disk);
             rids = ehash.search_hash(stoi(val_str));
@@ -212,7 +203,6 @@ void EVALVisitor::visit(SelectStmt* s) {
         if (!campo) { cerr << "WHERE mal formado" << "\n"; return; }
 
         string val_str = getExpValue(b->right);
-        printHeader();
 
         if (campo->value == "id") {
             cout << "SequentialFile binary search por key" << "\n";
@@ -244,21 +234,33 @@ void EVALVisitor::visit(SelectStmt* s) {
 
             if (idx_type == "btree") {
                 cout << "BTree" << "\n";
+                printHeader();
                 auto rids = btreeSearch(campo->value, col_tipo, col_offset, val_str, b->op);
                 for (auto& rid : rids) {
                     RecordPointer ptr(false, rid.page_id, rid.slot);
                     printRecord(sf.readByPointer(ptr));
                 }
             } else if (idx_type == "ehash") {
-                cout << "ExtendibleHash" << "\n";
-                auto rids = ehashSearch(campo->value,col_tipo,col_offset,val_str,b->op);
-                for (auto& rid : rids) {
-                    RecordPointer ptr(false, rid.page_id, rid.slot);
-                    printRecord(sf.readByPointer(ptr));
+                if (b->op != EQUAL_OP) {
+                    cout << "Extendible Hash no soportado para esta opracion, usando Squential File methods" << "\n";
+                    printHeader();
+                    scanFiltrar(col_tipo, col_offset, val_str, b->op);
+                } else {
+                    cout << "ExtendibleHash" << "\n";
+                    printHeader();
+                    auto rids = ehashSearch(campo->value, col_tipo, col_offset, val_str, b->op);
+                    cerr << "RIDs encontrados: " << rids.size() << "\n"; // borrar
+                    for (auto& rid : rids) {
+                        cerr << "  page_id=" << rid.page_id << " slot=" << rid.slot << "\n";
+                    }
+                    cerr.flush(); // borrar esto tambien
+                    for (auto& rid : rids) {
+                        RecordPointer ptr(false, rid.page_id, rid.slot);
+                        Record<int> rec = sf.readByPointer(ptr);
+                        cerr << "Record leido: key=" << rec.key << "\n"; cerr.flush();
+                        printRecord(rec);
+                    }
                 }
-            } else {
-                cout << "scanAll + filtro" << "\n";
-                scanFiltrar(col_tipo, col_offset, val_str, b->op);
             }
         }
 
@@ -435,6 +437,9 @@ void EVALVisitor::visit(InsertStmt* s) {
     auto [hubo_rebuild, pos] = sf.add(buffer, total);
     auto [page_id, slot] = pos;
 
+    cerr << "Insertado en page_id=" << page_id << " slot=" << slot << "\n"; // borrar esto
+    cerr.flush(); // borrar esto
+
     cout << "Insertado en '" << s->table_name << "\n";
 
     if (hubo_rebuild) {
@@ -459,6 +464,22 @@ void EVALVisitor::visit(InsertStmt* s) {
                     BPlusTree<FixedString<64>> btree(disk);
                     FixedString<64> val(buffer + off);
                     btree.insert(val, RID{(int)page_id, slot});
+                }
+            } else if (idx_type == "ehash") {
+                string ehash_path = "archivos/"+s->table_name+"_"+col.first+".ehash";
+                Diske disk(ehash_path);
+                if (col.second == "INT") {
+                    ExtendibleHashing<int> ehash(disk);
+                    int val; memcpy(&val,buffer+off,sizeof(int));
+                    ehash.insert_hash(val,RID_h{(int)page_id,slot});
+                }else if (col.second == "FLOAT") {
+                    ExtendibleHashing<float> ehash(disk);
+                    float val; memcpy(&val,buffer+off,sizeof(float));
+                    ehash.insert_hash(val,RID_h{(int)page_id,slot});
+                } else if (col.second.find("CHAR") != string::npos) {
+                    ExtendibleHashing<FixedString_H<64>> ehash(disk);
+                    FixedString_H<64> val(buffer + off);
+                    ehash.insert_hash(val,RID_h{(int)page_id,slot});
                 }
             }
             off += getTypeSize(col.second);
@@ -952,6 +973,31 @@ void EVALVisitor::reconstruirIndices(const string& tabla,const vector<pair<strin
                 }
             }
             cout << "Indice reconstruido: " << col.first << "" << "\n";
+        } else if (idx_type == "ehash") {
+            string ehash_path = "archivos/"+tabla+"_"+col.first+".ehash";
+            remove(ehash_path.c_str());
+            Diske disk(ehash_path);
+
+            if (col.second == "INT") {
+                ExtendibleHashing<int> ehash(disk);
+                for (auto& [rec, ptr] : records) {
+                    int val; memcpy(&val, rec.data + off, sizeof(int));
+                    ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+                }
+            } else if (col.second == "FLOAT") {
+                ExtendibleHashing<float> ehash(disk);
+                for (auto& [rec, ptr] : records) {
+                    float val; memcpy(&val, rec.data + off, sizeof(float));
+                    ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+                }
+            } else if (col.second.find("CHAR") != string::npos) {
+                ExtendibleHashing<FixedString_H<64>> ehash(disk);
+                for (auto& [rec, ptr] : records) {
+                    FixedString_H<64> val(rec.data + off);
+                    ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+                }
+            }
+            cout << "EHash reconstruido: " << col.first << "\n";
         }
         off += getTypeSize(col.second);
     }
