@@ -5,7 +5,7 @@
 #ifndef EXTENDIBLEHASHING_H
 #define EXTENDIBLEHASHING_H
 #include <vector>
-#include <bits/stdc++.h>
+#include <cstdint>
 
 using namespace std;
 
@@ -18,7 +18,40 @@ using PageID = int;
 static constexpr PageID NULL_PAGE_H = -1;
 struct Page_h { char data[PAGE_SIZE_H]; };
 
-static constexpr int DLIMIT       = 16;
+static constexpr int DLIMIT       = 9;
+
+// -------------------------------MurmurHash3--------------------------------------
+static uint32_t murmur3_32(const void* key, int len, uint32_t seed = 42) {
+    const uint8_t* data = (const uint8_t*)key;
+    const int nblocks = len / 4;
+    uint32_t h1 = seed;
+    const uint32_t c1 = 0xcc9e2d51;
+    const uint32_t c2 = 0x1b873593;
+
+    const uint32_t* blocks = (const uint32_t*)(data + nblocks * 4);
+    for (int i = -nblocks; i; i++) {
+        uint32_t k1 = blocks[i];
+        k1 *= c1; k1 = (k1 << 15) | (k1 >> 17); k1 *= c2;
+        h1 ^= k1;
+        h1 = (h1 << 13) | (h1 >> 19);
+        h1 = h1 * 5 + 0xe6546b64;
+    }
+
+    const uint8_t* tail = data + nblocks * 4;
+    uint32_t k1 = 0;
+    switch (len & 3) {
+        case 3: k1 ^= tail[2] << 16;
+        case 2: k1 ^= tail[1] << 8;
+        case 1: k1 ^= tail[0];
+            k1 *= c1; k1 = (k1 << 15) | (k1 >> 17); k1 *= c2; h1 ^= k1;
+    }
+
+    h1 ^= len;
+    h1 ^= h1 >> 16; h1 *= 0x85ebca6b;
+    h1 ^= h1 >> 13; h1 *= 0xc2b2ae35;
+    h1 ^= h1 >> 16;
+    return h1;
+}
 //--------------------------------FixedString---------------------------------------
 template<int N>
 struct FixedString_H {
@@ -56,6 +89,11 @@ struct FixedString_H {
 
     bool operator>=(const FixedString_H& other) const {
         return !(*this < other);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const FixedString_H<N>& fs) {
+        os << fs.data;
+        return os;
     }
 };
 namespace std {
@@ -243,52 +281,58 @@ struct BucketPage {
 };
 
 //--------------------------------------------------------------------------------------------------
-
 template<typename TKey>
 class ExtendibleHashing {
 private:
     using BucketT = BucketPage<TKey>;
 
     Diske& disk;
-    int D = 1; // global depth [1-16]
-    vector<PageID> directory;  // en memoria mientras corre
-    PageID dirPageId = NULL_PAGE_H;          // pagina donde se serializa el vector (disco)
+    int D = 1;
+    vector<PageID> directory;
+    PageID dirPageId = NULL_PAGE_H;
 
     int getIndex(const TKey& key) {
-        size_t h = hash<TKey>{}(key);
-        return h & ((1 << D) - 1);     // se queda con los ultimos bits, para mapearlo en mi directorio
+        return (int)(getHash(key) & ((1 << D) - 1));;
     }
 
     size_t getHash(const TKey& key) {
-        return hash<TKey>{}(key);     // aplica el hash nada mas, sin hayar su lugar en directory
+        return murmur3_32(&key,sizeof(TKey));
+    }
+
+    BucketT* asBucket(Page_h& p) {
+        return reinterpret_cast<BucketT*>(p.data);
+    }
+
+    bool isFull(BucketT* b) const {
+        return b->count >= BucketT::BUCKET_SIZE;
+    }
+
+    void saveDirectory() {
+        disk.saveDirectory(dirPageId, D, directory);
     }
 
 public:
 
-    explicit ExtendibleHashing(Diske& d): disk(d) {
+    explicit ExtendibleHashing(Diske& d) : disk(d) {
         auto [dp, loadedD] = disk.loadMetaValues();
         if (dp == NULL_PAGE_H) {
-            // primera vez — archivo nuevo
             D = 1;
             int size = 1 << D;
             directory.resize(size);
 
-            // crear el único bucket inicial
             PageID firstBucket = disk.alloc();
-            Page_h   p           = disk.read(firstBucket);
-            BucketT* b         = asBucket(p);
-            b->count           = 0;
-            b->localDepth      = 0;
-            b->nextPage        = NULL_PAGE_H;
-            b->useChaining     = false;
+            Page_h p = disk.read(firstBucket);
+            BucketT* b     = asBucket(p);
+            b->count       = 0;
+            b->localDepth  = 1;
+            b->nextPage    = NULL_PAGE_H;
+            b->useChaining = false;
             disk.write(firstBucket, p);
 
-            // todas las entradas del directorio apuntan a ese bucket
             for (int i = 0; i < size; i++)
                 directory[i] = firstBucket;
             saveDirectory();
         } else {
-            // ya existía — reconstruir desde disco
             dirPageId = dp;
             D         = loadedD;
             directory = disk.loadDirectory(dirPageId);
@@ -296,192 +340,234 @@ public:
     }
 
     void expandDirectory() {
-        int oldsize = 1 << D;
+        int oldSize = 1 << D;
         D++;
-        int newsize = 1 << D;
-
-        directory.resize(newsize);
-
-        for (int i=0; i < oldsize; i++) {
-            directory[i + oldsize] = directory[i];
-        }
+        directory.resize(1 << D);
+        for (int i = 0; i < oldSize; i++)
+            directory[i + oldSize] = directory[i];
         saveDirectory();
     }
 
     void split(int index) {
-        PageID oldId = directory[index];
-        Page_h p = disk.read(oldId);
-        BucketT* oldBucket = asBucket(p);
+    PageID oldId = directory[index];
+    Page_h oldPage = disk.read(oldId);
+    BucketT* oldBucket = asBucket(oldPage);
 
-        if (oldBucket->localDepth == D) {
-            if (D>= DLIMIT) {
-                oldBucket->useChaining = true;
-                disk.write(oldId,p);
-                return;
-            }
-            expandDirectory();
-            p = disk.read(oldId);
-            oldBucket = asBucket(p);
+    cerr << "[SPLIT] index=" << index << " oldId=" << oldId
+         << " localDepth=" << oldBucket->localDepth
+         << " D=" << D << " count=" << oldBucket->count << "\n";
+
+    if (oldBucket->localDepth == D) {
+        if (D >= DLIMIT) {
+            cerr << "[SPLIT] DLIMIT alcanzado — activando chaining en bucket " << oldId << "\n";
+            oldBucket->useChaining = true;
+            disk.write(oldId, oldPage);
+            return;
         }
-        // Modificar local depth y definit splitbit
-        int newLocalDepth = oldBucket->localDepth+1;
-        int splitBit = 1 << (newLocalDepth - 1);
-
-        // se guardar keys del old bucket
-        vector<TKey> tempKeys;
-        for (int i = 0 ; i < oldBucket->count; i++) {
-            tempKeys.push_back(oldBucket->keys[i]);
-        }
-        oldBucket->count = 0;
-
-        // borrando old bucket
-        oldBucket->localDepth = newLocalDepth;
-        oldBucket->count = 0;
-        disk.write(oldId,p);
-
-        // creando nuevo bucket
-        PageID newId = disk.alloc();
-        Page_h np = disk.read(newId);
-        BucketT* newBucket = asBucket(np);
-        newBucket->localDepth = newLocalDepth;
-        newBucket->count = 0;
-        newBucket->nextPage = NULL_PAGE_H;
-        newBucket->useChaining = false;
-        disk.write(newId,np);
-
-        // reasignar entradas del directorio
-        for (int i = 0; i < (int)directory.size(); i++) {
-            if (directory[i] == oldId && (i & splitBit)) {
-                directory[i] = newId;
-            }
-        }
-
-        for (TKey k:tempKeys) {
-            size_t h = getHash(k);
-            PageID destId = (h & splitBit) ? newId : oldId;
-
-            Page_h dp = disk.read(destId);
-            BucketT* db = asBucket(dp);
-            db->keys[db->count++] = k;
-            disk.write(destId,dp);
-        }
-        // persistir
-        saveDirectory();
+        cerr << "[SPLIT] expandiendo directorio D=" << D << " -> " << D+1 << "\n";
+        expandDirectory();
+        oldPage   = disk.read(oldId);
+        oldBucket = asBucket(oldPage);
     }
 
-    bool delete_aux(const TKey& key,PageID cubetaId) {
-        while (cubetaId != NULL_PAGE_H) {
-            Page_h p = disk.read(cubetaId);
-            BucketT* cubeta = asBucket(p);
+    int newLocalDepth = oldBucket->localDepth + 1;
+    int splitBit      = 1 << (newLocalDepth - 1);
 
-            for (int i = 0; i < cubeta->count; i++) {
-                if (cubeta->keys[i] == key) {
-                    for (int j = i; j < cubeta->count - 1; j++) {
-                        cubeta->keys[j] = cubeta->keys[j + 1];
-                    }
-                    cubeta->count  = cubeta->count - 1;
-                    disk.write(cubetaId,p);
-                    return true;
-                }
-            }
-            cubetaId = cubeta->nextPage;
+    // ✅ DIAGNÓSTICO antes de vaciar el bucket
+    {
+        int goOld = 0, goNew = 0;
+        for (int i = 0; i < oldBucket->count; i++) {
+            size_t h       = getHash(oldBucket->keys[i]);
+            int    fullIdx = (int)(h & ((1 << newLocalDepth) - 1));
+            if (fullIdx & splitBit) goNew++;
+            else                    goOld++;
         }
-        return false;
+        cerr << "[SPLIT] pre-redistribucion: newLocalDepth=" << newLocalDepth
+             << " splitBit=" << splitBit
+             << " → OLD=" << goOld << " NEW=" << goNew << "\n";
+
+        // si todos van al mismo lado, el hash es identidad
+        if (goOld == 0 || goNew == 0) {
+            // mostrar los primeros 5 hashes para confirmarlo
+            cerr << "[SPLIT] ⚠ TODOS AL MISMO LADO — primeros 5 hashes:\n";
+            for (int i = 0; i < min(5, (int)oldBucket->count); i++) {
+                size_t h       = getHash(oldBucket->keys[i]);
+                int    fullIdx = (int)(h & ((1 << newLocalDepth) - 1));
+                cerr << "  key=" << oldBucket->keys[i]
+                     << " hash=" << h
+                     << " fullIdx=" << fullIdx
+                     << " bit=" << ((fullIdx & splitBit) ? 1 : 0) << "\n";
+            }
+        }
+    }
+
+    vector<TKey>  tempKeys(oldBucket->keys,   oldBucket->keys   + oldBucket->count);
+    vector<RID_h> tempVals(oldBucket->values, oldBucket->values + oldBucket->count);
+
+    oldBucket->localDepth = newLocalDepth;
+    oldBucket->count      = 0;
+    disk.write(oldId, oldPage);
+
+    PageID newId = disk.alloc();
+    Page_h newPage = disk.read(newId);
+    BucketT* newBucket = asBucket(newPage);
+    newBucket->localDepth  = newLocalDepth;
+    newBucket->count       = 0;
+    newBucket->nextPage    = NULL_PAGE_H;
+    newBucket->useChaining = false;
+    disk.write(newId, newPage);
+
+    for (int i = 0; i < (int)directory.size(); i++)
+        if (directory[i] == oldId && (i & splitBit))
+            directory[i] = newId;
+
+    for (int i = 0; i < (int)tempKeys.size(); i++) {
+        size_t h       = getHash(tempKeys[i]);
+        int    fullIdx = (int)(h & ((1 << newLocalDepth) - 1));
+        PageID destId  = (fullIdx & splitBit) ? newId : oldId;
+
+        Page_h destPage = disk.read(destId);
+        BucketT* db     = asBucket(destPage);
+
+        if (db->count >= BucketT::BUCKET_SIZE) {
+            cerr << "[SPLIT] overflow en redistribucion — activando chaining bucket " << destId << "\n";
+            db->useChaining = true;
+            disk.write(destId, destPage);
+
+            PageID chainId = disk.alloc();
+            Page_h chainPage = disk.read(chainId);
+            BucketT* cb      = asBucket(chainPage);
+            cb->count        = 0;
+            cb->localDepth   = newLocalDepth;
+            cb->nextPage     = NULL_PAGE_H;
+            cb->useChaining  = true;
+            cb->keys[0]      = tempKeys[i];
+            cb->values[0]    = tempVals[i];
+            cb->count        = 1;
+            disk.write(chainId, chainPage);
+
+            db->nextPage = chainId;
+            disk.write(destId, destPage);
+            continue;
+        }
+
+        db->keys  [db->count] = tempKeys[i];
+        db->values[db->count] = tempVals[i];
+        db->count++;
+        disk.write(destId, destPage);
+    }
+
+    // ✅ DIAGNÓSTICO resultado final
+    {
+        Page_h op2 = disk.read(oldId);
+        BucketT* ob2 = asBucket(op2);
+        Page_h np2 = disk.read(newId);
+        BucketT* nb2 = asBucket(np2);
+        cerr << "[SPLIT] resultado: oldId=" << oldId << " count=" << ob2->count
+             << " | newId=" << newId << " count=" << nb2->count << "\n";
+    }
+
+    saveDirectory();
+    cerr << "[SPLIT] completado\n\n";
     }
 
     PageID findOrMakeBucket(const TKey& key) {
+        int iteraciones = 0;
         while (true) {
-            int    index    = getIndex(key);
-            PageID targetId = directory[index];
-            PageID prevId   = NULL_PAGE_H;
+            if (++iteraciones > 1000) {
+                cerr << "LOOP INFINITO en findOrMakeBucket\n";
+                return NULL_PAGE_H;
+            }
 
-            while (targetId != NULL_PAGE_H) {
-                Page_h     p       = disk.read(targetId);
+            int    index    = getIndex(key);
+            PageID currId   = directory[index];
+            PageID prevId   = NULL_PAGE_H;
+            bool   needSplit = false;
+
+            while (currId != NULL_PAGE_H) {
+                Page_h   p       = disk.read(currId);
                 BucketT* current = asBucket(p);
 
-                if (!isFull(current)) return targetId;
+                if (!isFull(current))
+                    return currId;
 
-                prevId   = targetId;
-                targetId = current->nextPage;
+                if (!current->useChaining)
+                    needSplit = true;
+
+                prevId = currId;
+                currId = current->nextPage;
             }
 
-            // todos llenos — leer el bucket raíz para ver si tiene chaining
-            Page_h     p = disk.read(directory[index]);
-            BucketT* b = asBucket(p);
-
-            if (!b->useChaining) {
+            if (needSplit) {
                 split(index);
-                continue;  // reintentar desde el inicio
+                continue;   // reintentar — el directorio cambió
             }
 
-            Page_h     pp = disk.read(prevId);
-            BucketT* pb = asBucket(pp);
+            // Todos los buckets tienen useChaining=true y están llenos → extender cadena
+            Page_h   prevPage   = disk.read(prevId);
+            BucketT* prevBucket = asBucket(prevPage);
 
-            PageID newId    = disk.alloc();
-            Page_h   np       = disk.read(newId);
-            BucketT* nb     = asBucket(np);
-            nb->count       = 0;
-            nb->localDepth  = pb->localDepth;
-            nb->nextPage    = NULL_PAGE_H;
-            nb->useChaining = true;
-            disk.write(newId, np);
+            PageID newId = disk.alloc();
+            Page_h   newPage   = disk.read(newId);
+            BucketT* newBucket = asBucket(newPage);
+            newBucket->count       = 0;
+            newBucket->localDepth  = prevBucket->localDepth;
+            newBucket->nextPage    = NULL_PAGE_H;
+            newBucket->useChaining = true;
+            disk.write(newId, newPage);
 
-            pb->nextPage = newId;
-            disk.write(prevId, pp);
+            prevBucket->nextPage = newId;
+            disk.write(prevId, prevPage);
+
             return newId;
         }
     }
 
-    void insertIntoBucket(PageID page_id,const TKey& key,const RID_h& rid) {
-        Page_h p = disk.read(page_id);
+    void insertIntoBucket(PageID page_id, const TKey& key, const RID_h& rid) {
+        Page_h   p = disk.read(page_id);
         BucketT* b = asBucket(p);
-        b->keys [b->count] = key;
+        b->keys  [b->count] = key;
         b->values[b->count] = rid;
         b->count++;
-        disk.write(page_id,p);
+        disk.write(page_id, p);
     }
 
-    // -------------- insert fix -----------------
     void insert_hash(const TKey& key, const RID_h& rid) {
-        insertIntoBucket(findOrMakeBucket(key),key,rid);
+        insertIntoBucket(findOrMakeBucket(key), key, rid);
     }
 
-    // --------------- search-hash ----------------
     vector<RID_h> search_hash(const TKey& key) {
         vector<RID_h> result;
-        int index = getIndex(key);
-        PageID target = directory[index];
+        int    index  = getIndex(key);
+        PageID currId = directory[index];
 
-        while (target != NULL_PAGE_H) {
-            Page_h p = disk.read(target);
+        while (currId != NULL_PAGE_H) {
+            Page_h   p       = disk.read(currId);
             BucketT* current = asBucket(p);
 
-            for (int i = 0 ; i < current->count ; i++) {
-                if (key == current->keys[i]) {
-                    result.push_back({current->values[i]});
-                }
-            }
-            target = current->nextPage;
+            for (int i = 0; i < current->count; i++)
+                if (key == current->keys[i])
+                    result.push_back(current->values[i]);
+
+            currId = current->nextPage;
         }
         return result;
     }
 
-    // ---------------- remove-hash -----------
     void delete_hash(const TKey& key, const RID_h& target) {
         int    index  = getIndex(key);
         PageID currId = directory[index];
 
         while (currId != NULL_PAGE_H) {
-            Page_h     p      = disk.read(currId);
+            Page_h   p      = disk.read(currId);
             BucketT* bucket = asBucket(p);
 
             for (int i = 0; i < bucket->count; i++) {
-                if (bucket->keys[i]        == key            &&
+                if (bucket->keys[i]           == key          &&
                     bucket->values[i].page_id == target.page_id &&
                     bucket->values[i].slot    == target.slot)
                 {
-                    // shift left para tapar el hueco
-                    for (int j = i; j+1 < bucket->count; j++) {
+                    for (int j = i; j + 1 < bucket->count; j++) {
                         bucket->keys  [j] = bucket->keys  [j+1];
                         bucket->values[j] = bucket->values[j+1];
                     }
@@ -494,18 +580,6 @@ public:
         }
         cout << "No se encontro la entrada a borrar\n";
     }
-
-
-    // helpers:
-    BucketT* asBucket(Page_h& p) {
-        return reinterpret_cast<BucketT*>(p.data);
-    }
-    bool isFull(BucketT* b) const { return b->count >= BucketT::BUCKET_SIZE;}
-
-    void saveDirectory() {
-        disk.saveDirectory(dirPageId, D, directory);
-    }
-
 };
 
 /*
