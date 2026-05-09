@@ -1,8 +1,7 @@
 === STDOUT ===
 Parseo exitoso
-BTree + SequentialFile remove
-Eliminados 1000 registros
+Insertado en 'hola'
 
-Tiempo de ejecuciÃ³n: 165 ms
+Tiempo de ejecución: 1 ms
 
 === STDERR ===

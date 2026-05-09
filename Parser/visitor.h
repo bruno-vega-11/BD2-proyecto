@@ -5,6 +5,12 @@
 #include "../Index/ExtendibleHashing.h"
 #include "../Index/BPTree.h"
 
+#include "../rtree/RangeSearchVisitor.h"
+#include "../rtree/KNNVisitor.h"
+#include "../rtree/Rtree_helpers.h"
+#include "../rtree/MiPagedDiskStorageManager.h"
+
+
 class Visitor {
 public:
     virtual void visit(SelectStmt* s) = 0;
@@ -44,5 +50,6 @@ vector<pair<string,string>> leerSchema(const string& path);
 string getIndex(const string& tabla, const string& columna);
 string getTipo(const string& raw);
 pair<string,string> getIndexInfo(const string& tabla, const string& columna);
+long long getRtreeId(const string& tabla, const string& columna);
 string getExpValue(Exp* e);
 #endif // VISITOR_H
