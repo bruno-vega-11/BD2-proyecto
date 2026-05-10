@@ -238,6 +238,9 @@ const KEYWORDS = new Set([
   "COMMIT",
   "ROLLBACK",
   "INCREMENTAL",
+  "INT",
+  "CHAR",
+  "FLOAT",
 ]);
 
 function highlightSQL(code: string): React.ReactNode[] {
@@ -485,7 +488,16 @@ function SpatialPlane({ data }: { data: RTreeVizResponse }) {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [query, setQuery] = useState("SELECT * FROM employees;\n");
+  const [query, setQuery] = useState(
+    `CREATE TABLE hola FROM ("data.csv") (
+    id int primary key incremental,
+    dni int,
+    nombre char(10),
+    edad int,
+    genero char(10),
+    altura float
+);`,
+  );
   const [result, setResult] = useState<ParserResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setTab] = useState<Tab>("output");
@@ -547,7 +559,7 @@ export default function App() {
           return [...prev, ...newCsvs.filter((c) => !names.has(c.name))];
         });
         if (newCsvs.length > 0) setActiveCsv(newCsvs[0].name);
-        setUploadMsg(`✓ ${data.files.join(", ")} subido correctamente`);
+        setUploadMsg(`✓ ${data.files.join(", ")} guardado en archivos/`);
       } else {
         setUploadMsg(`✗ ${data.error}`);
       }
