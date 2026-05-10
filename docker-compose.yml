@@ -1,0 +1,43 @@
+services:
+  # 1. MOTOR DBMS (C++)
+  # Este servicio compila y corre tu binario de PARSERSQL
+  dbms-engine:
+    build: 
+      context: ./PARSERSQL
+    container_name: engine_cpp
+    volumes:
+      # Mapeamos las carpetas para que los archivos persistan y el backend los vea
+      - ./PARSERSQL/input:/app/input
+      - shared_data:/app/outputs
+      - shared_data:/app/archivos
+
+  # 2. BACKEND (Node.js/Python/etc)
+  # El que recibe los fetch del frontend y ejecuta el binario o lee los archivos
+  backend:
+    build: 
+      context: ./web-app/backend
+    container_name: sql_backend
+    ports:
+      - "3000:3000"
+    volumes:
+      # El backend accede a la misma carpeta compartida que el motor de C++
+      - shared_data:/app/parser_results
+    depends_on:
+      - dbms-engine
+    environment:
+      - PARSER_PATH=/app/parser_results
+
+  # 3. FRONTEND (React + Vite + Nginx)
+  # La interfaz que pasaste antes, servida por Nginx
+  frontend:
+    build: 
+      context: ./web-app/frontend
+    container_name: sql_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+# Definimos el volumen compartido para que los contenedores se pasen archivos
+volumes:
+  shared_data:
