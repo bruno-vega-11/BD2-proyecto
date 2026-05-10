@@ -1,0 +1,12 @@
+=== STDOUT ===
+Parseo exitoso
+id	nombre	rating	ubicacion	
+----------------------------------------
+[Metodo: SequentialFile scanAll + kNN manual]
+1	ParqueA	4.500000	POINT(10.000000;20.000000)	
+11	CafeLima	4.400000	POINT(9.900000;19.500000)	
+10	UniversidadX	4.900000	POINT(11.100000;21.200000)	
+
+Tiempo de ejecución: 0 ms
+
+=== STDERR ===

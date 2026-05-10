@@ -55,5 +55,7 @@ string getExpValue(Exp* e);
 RID toRID(const RecordPointer& ptr);
 RecordPointer fromRID(const RID& rid);
 RecordPointer fromRID_h(const RID_h& rid);
+Rtree_RID toRID_r(const RecordPointer& ptr);
+RecordPointer fromRID_r(const Rtree_RID& rid);
 RID_h toRID_h(const RecordPointer& ptr);
 #endif // VISITOR_H

@@ -1,1 +1,1 @@
-SELECT * FROM lugares WHERE ubicacion IN (POINT(10.0,20.0), RADIUS 5.0);
+SELECT * FROM lugares;
