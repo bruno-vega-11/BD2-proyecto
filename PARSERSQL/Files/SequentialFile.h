@@ -1,0 +1,183 @@
+
+//
+// Created by ASUS on 29/04/2026.
+//
+#ifndef SEQUENTIAL_FILE_H
+#define SEQUENTIAL_FILE_H
+
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <stdexcept>
+#include <cstring>
+#include <cstdio>
+#include <utility>
+
+constexpr size_t SEQ_PAGE_SIZE = 4096;
+
+struct PointKey {
+    double longitud;
+    double latitud;
+
+    // Constructor por defecto (necesario para el auto_increment_counter si se inicializa a 0)
+    PointKey(double lon = 0.0, double lat = 0.0) : longitud(lon), latitud(lat) {}
+
+    //Permite que la base de datos haga "auto_increment_counter = 0;"
+    PointKey(int val) : longitud(val), latitud(val) {}
+
+    // 1. Sobrecarga de Igualdad
+    bool operator==(const PointKey& other) const {
+        return longitud == other.longitud && latitud == other.latitud;
+    }
+
+    // 2. Sobrecarga de Menor Qué (Ordenamiento Lexicográfico)
+    bool operator<(const PointKey& other) const {
+        if (longitud != other.longitud) {
+            return longitud < other.longitud; // Comparamos X
+        }
+        return latitud < other.latitud;       // Desempatamos con Y
+    }
+
+    // Permite que "auto_increment_counter++;" compile en tu .cpp genérico,
+    // pero lanza un error seguro si alguien intenta usar los métodos add(string) o add(buffer).
+    PointKey operator++(int) {
+        throw std::runtime_error("Error Geografico: No se pueden autoincrementar coordenadas espaciales. Debes usar add(Record) con la longitud y latitud exactas.");
+    }
+
+    // 3. El resto de operadores se derivan del < y ==
+    bool operator>(const PointKey& other) const { return other < *this; }
+    bool operator<=(const PointKey& other) const { return !(*this > other); }
+    bool operator>=(const PointKey& other) const { return !(*this < other); }
+};
+
+// 1. Puntero Lógico
+struct RecordPointer {
+    bool in_aux;
+    long page_id;
+    int record_idx;
+
+    RecordPointer();
+    RecordPointer(bool aux, long pid, int idx);
+    bool is_null() const;
+};
+
+// 2. Estructura de Registro
+template <typename KeyType>
+struct Record {
+    KeyType key;
+    char data[64];
+    RecordPointer next_ptr;
+    bool is_deleted;
+
+    Record() : is_deleted(false) {
+        std::memset(data, 0, sizeof(data));
+    }
+};
+
+// Cálculo de factor de bloqueo
+template <typename KeyType>
+constexpr size_t get_blocking_factor() {
+    return (SEQ_PAGE_SIZE - sizeof(size_t)) / sizeof(Record<KeyType>);
+}
+
+// 3. Estructura de Página
+template <typename KeyType>
+struct SeqPage {
+    size_t record_count = 0;
+    Record<KeyType> records[get_blocking_factor<KeyType>()];
+    char padding[SEQ_PAGE_SIZE - sizeof(size_t) - sizeof(Record<KeyType>) * get_blocking_factor<KeyType>()];
+
+    SeqPage() : record_count(0) {
+        memset(padding, 0, sizeof(padding));
+    }
+};
+
+// 4. Gestor de Disco
+class DiskManager {
+private:
+    std::fstream file;
+    std::string filename;
+public:
+    int read_count = 0;
+    int write_count = 0;
+
+    DiskManager();
+    DiskManager(const std::string& name);
+    ~DiskManager();
+
+    void open(const std::string& name);
+    void close();
+    void reset_stats();
+
+    template <typename KeyType>
+    void read_page(long page_id, SeqPage<KeyType>& page);
+
+    template <typename KeyType>
+    void write_page(long page_id, const SeqPage<KeyType>& page);
+    long get_page_count();
+};
+
+// 5. Motor Sequential File
+template <typename KeyType>
+class SequentialFile {
+private:
+    DiskManager data_file;
+    DiskManager aux_file;
+
+    size_t aux_record_count;
+    size_t K_LIMIT;
+    long total_data_pages;
+    long total_aux_pages;
+    RecordPointer head_ptr;
+
+    // Archivos dinámicos y metadatos implementados por tu compañero
+    std::string data_filename;
+    std::string aux_filename;
+    std::string meta_filename;
+
+    // Generador automático de llaves
+    KeyType auto_increment_counter;
+
+    void fetch_page(const RecordPointer& ptr, SeqPage<KeyType>& page);
+    void save_page(const RecordPointer& ptr, const SeqPage<KeyType>& page);
+    RecordPointer find_predecessor_or_exact(KeyType search_key);
+
+public:
+    SequentialFile(const std::string& data_name, const std::string& aux_name, size_t k = 50);
+
+    void save_meta(); // Guarda el estado actual rápido en disco
+
+    void remove(KeyType key);
+
+    //nuevo remove con parametro de posicion fisica
+    void remove(long page_id, int slot);
+    std::vector<Record<KeyType>> rangeSearch(KeyType begin_key, KeyType end_key);
+    void rebuild();
+    std::vector<Record<KeyType>> scanAll();
+    std::vector<Record<KeyType>> searchByText(const std::string& query);
+
+    std::pair<bool, std::pair<long, int>> add(const Record<KeyType>& new_record);
+
+
+    std::pair<bool, std::pair<long, int>> add(const std::string& payload);
+
+    // Recibe los datos pero como char
+    std::pair<bool, std::pair<long, int>> add(const char* buffer, size_t size);
+
+
+    // Búsqueda veloz para índices secundarios dictados por el parser
+    std::vector<Record<KeyType>> search(const std::vector<std::pair<std::string, std::pair<long, int>>>& targets);
+
+
+    std::pair<Record<KeyType>, int> search_key(KeyType search_key);
+
+    // Para obtener todo con ptr
+    std::vector<std::pair<Record<KeyType>, RecordPointer>> scanAllWithPtr();
+
+    Record<KeyType> readByPointer(const RecordPointer& ptr);
+
+
+};
+
+#endif // SEQUENTIAL_FILE_H

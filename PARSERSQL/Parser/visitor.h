@@ -1,0 +1,61 @@
+#ifndef VISITOR_H
+#define VISITOR_H
+#include "ast.h"
+#include "../Files/SequentialFile.h"
+#include "../Index/ExtendibleHashing.h"
+#include "../Index/BPTree.h"
+
+#include "../rtree/RangeSearchVisitor.h"
+#include "../rtree/KNNVisitor.h"
+#include "../rtree/Rtree_helpers.h"
+#include "../rtree/MiPagedDiskStorageManager.h"
+
+
+class Visitor {
+public:
+    virtual void visit(SelectStmt* s) = 0;
+    virtual void visit(InsertStmt* s) = 0;
+    virtual void visit(CreateIndexStmt* s) = 0;
+    virtual void visit(DeleteStmt* s) = 0;
+    virtual void visit(CreateTableStmt* s) = 0;
+};
+
+class PrintVisitor : public Visitor {
+public:
+    void imprimir(Exp* program);
+};
+
+class EVALVisitor : public Visitor {
+public:
+    void visit(SelectStmt* s) override;
+    void visit(InsertStmt* s) override;
+    void visit(CreateIndexStmt* s) override;
+    void visit(DeleteStmt* s) override;
+    void visit(CreateTableStmt* s) override;
+    void reconstruirIndices(const string& tabla,const vector<pair<string,string>>& cols,SequentialFile<int>& sf);
+    void interprete(Exp* program);
+};
+
+class AstVisitor : public Visitor {
+public:
+    ostream out{nullptr};
+    int id;
+    void arbol(Exp* program);
+};
+
+int getTypeSize(const string& tipo);
+void serializeField(char* buf, const string& val, const string& tipo);
+string deserializeField(const char* buf, const string& tipo);
+vector<pair<string,string>> leerSchema(const string& path);
+string getIndex(const string& tabla, const string& columna);
+string getTipo(const string& raw);
+pair<string,string> getIndexInfo(const string& tabla, const string& columna);
+long long getRtreeId(const string& tabla, const string& columna);
+string getExpValue(Exp* e);
+RID toRID(const RecordPointer& ptr);
+RecordPointer fromRID(const RID& rid);
+RecordPointer fromRID_h(const RID_h& rid);
+Rtree_RID toRID_r(const RecordPointer& ptr);
+RecordPointer fromRID_r(const Rtree_RID& rid);
+RID_h toRID_h(const RecordPointer& ptr);
+#endif // VISITOR_H
