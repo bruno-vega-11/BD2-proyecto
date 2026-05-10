@@ -5,6 +5,10 @@
 #include "../Index/ExtendibleHashing.h"
 #include "../Index/BPTree.h"
 
+#include "../rtree/RangeSearchVisitor.h"
+#include "../rtree/KNNVisitor.h"
+#include "../rtree/Rtree_helpers.h"
+#include "../rtree/MiPagedDiskStorageManager.h"
 
 
 class Visitor {

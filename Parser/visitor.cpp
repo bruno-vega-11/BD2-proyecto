@@ -323,6 +323,118 @@ void EVALVisitor::visit(SelectStmt* s) {
                 }
             }
         }
+    }  else if (SpatialRaidusExp* sr = dynamic_cast<SpatialRaidusExp*>(s->where_cond)) {
+        IdExp* campo = dynamic_cast<IdExp*>(sr->column);
+        if (!campo) { cerr << "columna mal formada\n"; return; }
+
+        // buscar columna en schema
+        int col_offset = 0;
+        string col_tipo = "";
+        for (auto& col : cols) {
+            if (col.first == campo->value) { col_tipo = col.second; break; }
+            col_offset += getTypeSize(col.second);
+        }
+        if (col_tipo != "POINT") { cerr << "columna no es POINT\n"; return; }
+
+        auto [idx_type, idx_col_tipo] = getIndexInfo(s->table, campo->value);
+
+        printHeader();
+
+        if (idx_type == "rtree") {
+            long long idIndice = getRtreeId(s->table, campo->value);
+            string rtree_path = "archivos/"+s->table+"_"+campo->value+".rtree";
+            MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
+            SpatialIndex::id_type rtreeId = (SpatialIndex::id_type)idIndice;
+            SpatialIndex::ISpatialIndex* arbol =
+                SpatialIndex::RTree::loadRTree(*almacenamiento, rtreeId);
+
+            auto rids = Rtree_rangeSearch(*arbol, sr->center->x, sr->center->y, sr->radius);
+
+            for (auto& rid : rids) {
+                RecordPointer ptr(false, rid.page, rid.slot);
+                printRecord(sf.readByPointer(ptr));
+            }
+
+            delete arbol;
+            delete almacenamiento;
+        } else {
+            // sin indice: scanAll + filtrar por distancia - O(n)
+            cout << "[Metodo: SequentialFile scanAll + filtro radio]\n";
+            auto records = sf.scanAll();
+            for (auto& r : records) {
+                double x, y;
+                memcpy(&x, r.data + col_offset, sizeof(double));
+                memcpy(&y, r.data + col_offset + sizeof(double), sizeof(double));
+                double dist = sqrt(pow(x - sr->center->x, 2) + pow(y - sr->center->y, 2));
+                if (dist <= sr->radius) printRecord(r);
+            }
+        }
+
+    } else if (SpatialKnnExp* sk = dynamic_cast<SpatialKnnExp*>(s->where_cond)) {
+        // WHERE col IN POINT(x,y) K k
+        IdExp* campo = dynamic_cast<IdExp*>(sk->column);
+        if (!campo) { cerr << "columna mal formada\n"; return; }
+
+        int col_offset = 0;
+        string col_tipo = "";
+        for (auto& col : cols) {
+            if (col.first == campo->value) { col_tipo = col.second; break; }
+            col_offset += getTypeSize(col.second);
+        }
+        if (col_tipo != "POINT") { cerr << "columna no es POINT\n"; return; }
+
+        auto [idx_type, idx_col_tipo] = getIndexInfo(s->table, campo->value);
+
+        printHeader();
+
+        if (idx_type == "rtree") {
+            // [RTree] kNN - O(log n)
+            cout << "[Metodo: RTree kNN]\n";
+            string rtree_path = "archivos/"+s->table+"_"+campo->value+".rtree";
+            MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
+
+            SpatialIndex::id_type idIndice;
+            SpatialIndex::ISpatialIndex* arbol =
+                SpatialIndex::RTree::loadRTree(*almacenamiento, idIndice);
+
+            double coords[] = {sk->center->x, sk->center->y};
+            SpatialIndex::Point punto(coords, 2);
+            auto rids = Rtree_kNN(*arbol, punto, sk->k);
+
+            for (auto& rid : rids) {
+                RecordPointer ptr(false, rid.page, rid.slot);
+                printRecord(sf.readByPointer(ptr));
+            }
+
+            delete arbol;
+            delete almacenamiento;
+        } else {
+            // sin indice: scanAll + ordenar por distancia + tomar k - O(n log n)
+            cout << "[Metodo: SequentialFile scanAll + kNN manual]\n";
+            auto records = sf.scanAll();
+
+            // calcular distancia para cada record
+            vector<pair<double, Record<int>>> distancias;
+            for (auto& r : records) {
+                double x, y;
+                memcpy(&x, r.data + col_offset, sizeof(double));
+                memcpy(&y, r.data + col_offset + sizeof(double), sizeof(double));
+                double dist = sqrt(pow(x - sk->center->x, 2) + pow(y - sk->center->y, 2));
+                distancias.push_back({dist, r});
+            }
+
+            // ordenar por distancia
+            sort(distancias.begin(), distancias.end(),
+                [](const auto& a, const auto& b) { return a.first < b.first; });
+
+            // tomar los k mas cercanos
+            int count = 0;
+            for (auto& [dist, r] : distancias) {
+                if (count >= sk->k) break;
+                printRecord(r);
+                count++;
+            }
+        }
     }
 }
 
@@ -510,7 +622,7 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
 
     if (s->op == BTREE) {
         string btree_path = "archivos/"+s->tableName+"_"+s->indexName+".btree";
-        remove(btree_path.c_str()); // borrar anterior si existe
+        remove(btree_path.c_str()); 
         Disk disk(btree_path);
 
         if (col_tipo == "INT") {
@@ -588,6 +700,56 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
         }
         cout << "EHash sobre '" << s->indexName << "' tipo=" << col_tipo
              << " en tabla '" << s->tableName << "'\n";
+    } else if (s->op == RTREE) {
+        int col_offset = 0;
+        string col_tipo = "";
+        for (auto& col : cols) {
+            if (col.first == s->indexName) {
+                col_tipo = col.second;
+                break;
+            }
+            col_offset += getTypeSize(col.second);
+        }
+
+        if (col_tipo != "POINT") {
+            cerr << "RTREE solo soporta columnas tipo POINT\n";
+            return;
+        }
+
+        // 2. crear RTree
+        string rtree_path = "archivos/"+s->tableName+"_"+s->indexName+".rtree";
+        MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
+
+        SpatialIndex::id_type idIndice;
+        SpatialIndex::ISpatialIndex* arbol =
+            SpatialIndex::RTree::createNewRTree(
+                *almacenamiento,
+                0.7, 10, 10, 2,
+                SpatialIndex::RTree::RV_RSTAR,
+                idIndice
+            );
+
+        // 3. insertar todos los registros
+        auto records = sf.scanAllWithPtr();
+        for (auto& [rec, ptr] : records) {
+            double x, y;
+            memcpy(&x, rec.data + col_offset, sizeof(double));
+            memcpy(&y, rec.data + col_offset + sizeof(double), sizeof(double));
+
+            Rtree_RID rid{(uint32_t)ptr.page_id, (uint32_t)ptr.record_idx};
+            Rtree_insertarPuntoEnArbol(arbol, x, y, rid);
+        }
+
+        arbol->flush();
+        almacenamiento->flush();
+        delete arbol;
+        delete almacenamiento;
+
+        ofstream idx("archivos/"+s->tableName+".indexes", ios::app);
+        idx << s->indexName << ":rtree:POINT:" << idIndice << "\n";
+        idx.close();
+
+        cout << "[CREATE INDEX RTREE] sobre '" << s->indexName<< "' en tabla '" << s->tableName << "'\n";
     }
 }
 
@@ -888,6 +1050,7 @@ int getTypeSize(const string& tipo) {
     if (tipo == "INT")    return 4;
     if (tipo == "FLOAT")  return 4;
     if (tipo == "DOUBLE") return 8;
+    if (tipo == "POINT")  return 16; // 2 doubles
     if (tipo.find("CHAR(") != string::npos) {
         size_t start = tipo.find('(') + 1;
         size_t end   = tipo.find(')');
@@ -913,6 +1076,17 @@ void serializeField(char* buf, const string& val, const string& tipo) {
         memset(buf, 0, n);
         strncpy(buf, val.c_str(), n-1);
     }
+    else if (tipo == "POINT") {
+        string clean = val;
+        if (clean.size() > 5 && clean.substr(0,5) == "POINT") {
+            clean = clean.substr(6, clean.size() - 7); // "POINT(x;y)" → "x;y"
+        }
+        auto sep = clean.find(';');
+        double x = stod(clean.substr(0, sep));
+        double y = stod(clean.substr(sep + 1));
+        memcpy(buf, &x, sizeof(double));
+        memcpy(buf + sizeof(double), &y, sizeof(double));
+    }
 }
 
 string deserializeField(const char* buf, const string& tipo) {
@@ -930,8 +1104,14 @@ string deserializeField(const char* buf, const string& tipo) {
         size_t end   = tipo.find(')');
         int n = stoi(tipo.substr(start, end - start));
         return string(buf, strnlen(buf, n));
+    } else if (tipo == "POINT") {
+        double x, y;
+        memcpy(&x, buf, sizeof(double));
+        memcpy(&y, buf + sizeof(double), sizeof(double));
+        return "POINT(" + to_string(x) + ";" + to_string(y) + ")";
     }
     return "";
+
 }
 
 vector<pair<string,string>> leerSchema(const string& path) {
@@ -1010,6 +1190,25 @@ string getExpValue(Exp* e) {
     if (FloatExp* fe = dynamic_cast<FloatExp*>(e))   return to_string(fe->value);
     if (StringExp* se = dynamic_cast<StringExp*>(e)) return se->value;
     return "";
+}
+
+long long getRtreeId(const string& tabla, const string& columna) {
+    ifstream f("archivos/"+tabla+".indexes");
+    if (!f.is_open()) return -1;
+    string line;
+    while (getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        stringstream ss(line);
+        string col, idx, tipo, id_str;
+        getline(ss, col, ':');
+        getline(ss, idx, ':');
+        getline(ss, tipo, ':');
+        getline(ss, id_str, ':');
+        if (col == columna && idx == "rtree") {
+            return id_str.empty() ? -1 : stoll(id_str);
+        }
+    }
+    return -1;
 }
 
 RID toRID(const RecordPointer& ptr) {

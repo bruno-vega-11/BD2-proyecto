@@ -1,0 +1,11 @@
+=== STDOUT ===
+Parseo exitoso
+META no existe - archivo nuevo
+SequentialFile scanAll
+id	
+----------------------------------------
+Total: 0 registros
+
+Tiempo de ejecución: 0 ms
+
+=== STDERR ===

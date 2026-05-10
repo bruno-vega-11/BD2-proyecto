@@ -1,0 +1,7 @@
+=== STDOUT ===
+Parseo exitoso
+META no existe - archivo nuevo
+
+=== STDERR ===
+terminate called after throwing an instance of 'std::invalid_argument'
+  what():  stod

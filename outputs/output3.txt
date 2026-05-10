@@ -1,0 +1,8 @@
+=== STDOUT ===
+Parseo exitoso
+META no existe - archivo nuevo
+
+Tiempo de ejecución: 0 ms
+
+=== STDERR ===
+columna no es POINT
