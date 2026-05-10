@@ -323,11 +323,10 @@ void EVALVisitor::visit(SelectStmt* s) {
                 }
             }
         }
-    }  else if (SpatialRaidusExp* sr = dynamic_cast<SpatialRaidusExp*>(s->where_cond)) {
+    } else if (SpatialRaidusExp* sr = dynamic_cast<SpatialRaidusExp*>(s->where_cond)) {
         IdExp* campo = dynamic_cast<IdExp*>(sr->column);
         if (!campo) { cerr << "columna mal formada\n"; return; }
 
-        // buscar columna en schema
         int col_offset = 0;
         string col_tipo = "";
         for (auto& col : cols) {
@@ -351,14 +350,12 @@ void EVALVisitor::visit(SelectStmt* s) {
             auto rids = Rtree_rangeSearch(*arbol, sr->center->x, sr->center->y, sr->radius);
 
             for (auto& rid : rids) {
-                RecordPointer ptr(false, rid.page, rid.slot);
-                printRecord(sf.readByPointer(ptr));
+                printRecord(sf.readByPointer(fromRID_r(rid)));
             }
 
             delete arbol;
             delete almacenamiento;
         } else {
-            // sin indice: scanAll + filtrar por distancia - O(n)
             cout << "[Metodo: SequentialFile scanAll + filtro radio]\n";
             auto records = sf.scanAll();
             for (auto& r : records) {
@@ -371,7 +368,6 @@ void EVALVisitor::visit(SelectStmt* s) {
         }
 
     } else if (SpatialKnnExp* sk = dynamic_cast<SpatialKnnExp*>(s->where_cond)) {
-        // WHERE col IN POINT(x,y) K k
         IdExp* campo = dynamic_cast<IdExp*>(sk->column);
         if (!campo) { cerr << "columna mal formada\n"; return; }
 
@@ -388,32 +384,28 @@ void EVALVisitor::visit(SelectStmt* s) {
         printHeader();
 
         if (idx_type == "rtree") {
-            // [RTree] kNN - O(log n)
             cout << "[Metodo: RTree kNN]\n";
+            long long idIndice = getRtreeId(s->table, campo->value);
             string rtree_path = "archivos/"+s->table+"_"+campo->value+".rtree";
             MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
-
-            SpatialIndex::id_type idIndice;
+            SpatialIndex::id_type rtreeId = (SpatialIndex::id_type)idIndice;
             SpatialIndex::ISpatialIndex* arbol =
-                SpatialIndex::RTree::loadRTree(*almacenamiento, idIndice);
+                SpatialIndex::RTree::loadRTree(*almacenamiento, rtreeId);
 
             double coords[] = {sk->center->x, sk->center->y};
             SpatialIndex::Point punto(coords, 2);
             auto rids = Rtree_kNN(*arbol, punto, sk->k);
 
             for (auto& rid : rids) {
-                RecordPointer ptr(false, rid.page, rid.slot);
-                printRecord(sf.readByPointer(ptr));
+                printRecord(sf.readByPointer(fromRID_r(rid)));
             }
 
             delete arbol;
             delete almacenamiento;
         } else {
-            // sin indice: scanAll + ordenar por distancia + tomar k - O(n log n)
             cout << "[Metodo: SequentialFile scanAll + kNN manual]\n";
             auto records = sf.scanAll();
 
-            // calcular distancia para cada record
             vector<pair<double, Record<int>>> distancias;
             for (auto& r : records) {
                 double x, y;
@@ -423,11 +415,9 @@ void EVALVisitor::visit(SelectStmt* s) {
                 distancias.push_back({dist, r});
             }
 
-            // ordenar por distancia
             sort(distancias.begin(), distancias.end(),
                 [](const auto& a, const auto& b) { return a.first < b.first; });
 
-            // tomar los k mas cercanos
             int count = 0;
             for (auto& [dist, r] : distancias) {
                 if (count >= sk->k) break;
@@ -554,7 +544,6 @@ void EVALVisitor::visit(InsertStmt* s) {
         cout << "Rebuild detectado\n";
         reconstruirIndices(s->table_name, cols, sf);
     } else {
-        // nuevo registro siempre va al aux
         RecordPointer new_ptr(true, page_id, slot);
 
         int off2 = 0;
@@ -567,7 +556,7 @@ void EVALVisitor::visit(InsertStmt* s) {
                 if (col.second == "INT") {
                     BPlusTree<int> btree(disk);
                     int val; memcpy(&val, buffer + off2, sizeof(int));
-                    btree.insert(val, toRID(new_ptr)); // <- toRID
+                    btree.insert(val, toRID(new_ptr));
                 } else if (col.second == "FLOAT") {
                     BPlusTree<float> btree(disk);
                     float val; memcpy(&val, buffer + off2, sizeof(float));
@@ -583,7 +572,7 @@ void EVALVisitor::visit(InsertStmt* s) {
                 if (col.second == "INT") {
                     ExtendibleHashing<int> ehash(disk);
                     int val; memcpy(&val, buffer + off2, sizeof(int));
-                    ehash.insert_hash(val, toRID_h(new_ptr)); // <- toRID_h
+                    ehash.insert_hash(val, toRID_h(new_ptr));
                 } else if (col.second == "FLOAT") {
                     ExtendibleHashing<float> ehash(disk);
                     float val; memcpy(&val, buffer + off2, sizeof(float));
@@ -593,7 +582,26 @@ void EVALVisitor::visit(InsertStmt* s) {
                     FixedString_H<64> val(buffer + off2);
                     ehash.insert_hash(val, toRID_h(new_ptr));
                 }
+            } else if (idx_type == "rtree" && col.second == "POINT") {
+                long long idIndice = getRtreeId(s->table_name, col.first);
+                string rtree_path = "archivos/"+s->table_name+"_"+col.first+".rtree";
+                MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
+                SpatialIndex::id_type rtreeId = (SpatialIndex::id_type)idIndice;
+                SpatialIndex::ISpatialIndex* arbol =
+                    SpatialIndex::RTree::loadRTree(*almacenamiento, rtreeId);
+
+                double x, y;
+                memcpy(&x, buffer + off2, sizeof(double));
+                memcpy(&y, buffer + off2 + sizeof(double), sizeof(double));
+
+                Rtree_insertarPuntoEnArbol(arbol, x, y, toRID_r(new_ptr));
+
+                arbol->flush();
+                almacenamiento->flush();
+                delete arbol;
+                delete almacenamiento;
             }
+
             off2 += getTypeSize(col.second);
         }
     }
@@ -604,13 +612,9 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
     int col_offset = 0;
     string col_tipo = "";
     for (auto& col : cols) {
-        if (col.first == s->indexName) {
-            col_tipo = col.second;
-            break;
-        }
+        if (col.first == s->indexName) { col_tipo = col.second; break; }
         col_offset += getTypeSize(col.second);
     }
-
     if (col_tipo.empty()) {
         cerr << "Columna '" << s->indexName << "' no existe\n";
         return;
@@ -622,14 +626,14 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
 
     if (s->op == BTREE) {
         string btree_path = "archivos/"+s->tableName+"_"+s->indexName+".btree";
-        remove(btree_path.c_str()); 
+        remove(btree_path.c_str());
         Disk disk(btree_path);
 
         if (col_tipo == "INT") {
             BPlusTree<int> btree(disk);
             for (auto& [rec, ptr] : records) {
                 int val; memcpy(&val, rec.data + col_offset, sizeof(int));
-                btree.insert(val, toRID(ptr)); // <- toRID
+                btree.insert(val, toRID(ptr));
             }
         } else if (col_tipo == "FLOAT") {
             BPlusTree<float> btree(disk);
@@ -648,7 +652,6 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
             return;
         }
 
-        // registrar en .indexes solo si no existe ya
         ifstream check("archivos/"+s->tableName+".indexes");
         string line; bool existe = false;
         while (getline(check, line))
@@ -663,7 +666,7 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
 
     } else if (s->op == EHASH) {
         string ehash_path = "archivos/"+s->tableName+"_"+s->indexName+".ehash";
-        remove(ehash_path.c_str()); // borrar anterior si existe
+        remove(ehash_path.c_str());
         Diske diske(ehash_path);
 
         if (col_tipo == "INT") {
@@ -700,23 +703,14 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
         }
         cout << "EHash sobre '" << s->indexName << "' tipo=" << col_tipo
              << " en tabla '" << s->tableName << "'\n";
-    } else if (s->op == RTREE) {
-        int col_offset = 0;
-        string col_tipo = "";
-        for (auto& col : cols) {
-            if (col.first == s->indexName) {
-                col_tipo = col.second;
-                break;
-            }
-            col_offset += getTypeSize(col.second);
-        }
 
+    } else if (s->op == RTREE) {
+        // col_offset y col_tipo ya calculados arriba ✓
         if (col_tipo != "POINT") {
             cerr << "RTREE solo soporta columnas tipo POINT\n";
             return;
         }
 
-        // 2. crear RTree
         string rtree_path = "archivos/"+s->tableName+"_"+s->indexName+".rtree";
         MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
 
@@ -729,15 +723,11 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
                 idIndice
             );
 
-        // 3. insertar todos los registros
-        auto records = sf.scanAllWithPtr();
         for (auto& [rec, ptr] : records) {
             double x, y;
             memcpy(&x, rec.data + col_offset, sizeof(double));
             memcpy(&y, rec.data + col_offset + sizeof(double), sizeof(double));
-
-            Rtree_RID rid{(uint32_t)ptr.page_id, (uint32_t)ptr.record_idx};
-            Rtree_insertarPuntoEnArbol(arbol, x, y, rid);
+            Rtree_insertarPuntoEnArbol(arbol, x, y, toRID_r(ptr)); // <- toRID_r
         }
 
         arbol->flush();
@@ -745,11 +735,17 @@ void EVALVisitor::visit(CreateIndexStmt* s) {
         delete arbol;
         delete almacenamiento;
 
-        ofstream idx("archivos/"+s->tableName+".indexes", ios::app);
-        idx << s->indexName << ":rtree:POINT:" << idIndice << "\n";
-        idx.close();
-
-        cout << "[CREATE INDEX RTREE] sobre '" << s->indexName<< "' en tabla '" << s->tableName << "'\n";
+        ifstream check("archivos/"+s->tableName+".indexes");
+        string line; bool existe = false;
+        while (getline(check, line))
+            if (line.find(s->indexName+":rtree") != string::npos) { existe = true; break; }
+        check.close();
+        if (!existe) {
+            ofstream idx("archivos/"+s->tableName+".indexes", ios::app);
+            idx << s->indexName << ":rtree:POINT:" << idIndice << "\n";
+        }
+        cout << "[CREATE INDEX RTREE] sobre '" << s->indexName
+             << "' en tabla '" << s->tableName << "'\n";
     }
 }
 
@@ -839,12 +835,11 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     rids = btree.rangeSearch(lo, hi);
                 }
                 for (auto& rid : rids) {
-                    Record<int> rec = sf.readByPointer(fromRID(rid)); // <- fromRID
+                    Record<int> rec = sf.readByPointer(fromRID(rid));
                     int val_rec; memcpy(&val_rec, rec.data + col_offset, sizeof(int));
                     sf.remove(rec.key);
                     btree.removeByRID(val_rec, rid);
                 }
-
             } else if (col_tipo == "FLOAT") {
                 BPlusTree<float> btree(disk);
                 float val = stof(val_str);
@@ -854,16 +849,14 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 else if (b->op == LEQ_OP) hi = val;
                 else if (b->op == LES_OP) hi = val;
                 else if (b->op == EQUAL_OP) rids = btree.searchAll(val);
-
                 if (b->op != EQUAL_OP) rids = btree.rangeSearch(lo, hi);
                 for (auto& rid : rids) {
-                    Record<int> rec = sf.readByPointer(fromRID(rid)); // <- fromRID
+                    Record<int> rec = sf.readByPointer(fromRID(rid));
                     float val_rec; memcpy(&val_rec, rec.data + col_offset, sizeof(float));
                     if (!cumpleCondicion(to_string(val_rec), val_str, col_tipo, b->op)) continue;
                     sf.remove(rec.key);
                     btree.removeByRID(val_rec, rid);
                 }
-
             } else if (col_tipo.find("CHAR") != string::npos) {
                 BPlusTree<FixedString<64>> btree(disk);
                 FixedString<64> val(val_str);
@@ -877,7 +870,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     rids = btree.rangeSearch(lo, hi);
                 }
                 for (auto& rid : rids) {
-                    Record<int> rec = sf.readByPointer(fromRID(rid)); // <- fromRID
+                    Record<int> rec = sf.readByPointer(fromRID(rid));
                     string val_rec = deserializeField(rec.data + col_offset, col_tipo);
                     if (!cumpleCondicion(val_rec, val_str, col_tipo, b->op)) continue;
                     FixedString<64> val_fs(val_rec);
@@ -894,7 +887,6 @@ void EVALVisitor::visit(DeleteStmt* s) {
 
             if (b->op != EQUAL_OP) {
                 cout << "EHash no soporta rangos para eliminar, usando scanAll + filtro\n";
-                // Reutilizamos la lógica de scanFiltrar pero para borrar
                 auto records = sf.scanAllWithPtr();
                 int count = 0;
                 for (auto& [rec, ptr] : records) {
@@ -902,11 +894,9 @@ void EVALVisitor::visit(DeleteStmt* s) {
                     if (cumpleCondicion(val_rec, val_str, col_tipo, b->op)) {
                         sf.remove(rec.key);
                         count++;
-                        // NOTA: Aquí faltaría limpiar el índice Hash también,
-                        // pero sin igualdad es costoso. Por simplicidad borramos del data.
                     }
                 }
-                cout << "Eliminados " << count << " registros (vía scan)\n";
+                cout << "Eliminados " << count << " registros (via scan)\n";
                 return;
             }
 
@@ -915,7 +905,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 int val = stoi(val_str);
                 auto rids = ehash.search_hash(val);
                 for (auto& rid : rids) {
-                    Record<int> rec = sf.readByPointer(fromRID_h(rid)); // <- fromRID
+                    Record<int> rec = sf.readByPointer(fromRID_h(rid));
                     int val_rec; memcpy(&val_rec, rec.data + col_offset, sizeof(int));
                     sf.remove(rec.key);
                     ehash.delete_hash(val_rec, rid);
@@ -991,7 +981,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 BPlusTree<int> btree(disk);
                 rids = btree.rangeSearch(stoi(low_str), stoi(high_str));
                 for (auto& rid : rids) {
-                    Record<int> rec = sf.readByPointer(fromRID(rid)); // <- fromRID
+                    Record<int> rec = sf.readByPointer(fromRID(rid));
                     int val; memcpy(&val, rec.data + col_offset, sizeof(int));
                     sf.remove(rec.key);
                     btree.removeByRID(val, rid);
@@ -1000,7 +990,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 BPlusTree<float> btree(disk);
                 rids = btree.rangeSearch(stof(low_str), stof(high_str));
                 for (auto& rid : rids) {
-                    Record<int> rec = sf.readByPointer(fromRID(rid)); // <- fromRID
+                    Record<int> rec = sf.readByPointer(fromRID(rid));
                     float val; memcpy(&val, rec.data + col_offset, sizeof(float));
                     sf.remove(rec.key);
                     btree.removeByRID(val, rid);
@@ -1009,7 +999,7 @@ void EVALVisitor::visit(DeleteStmt* s) {
                 BPlusTree<FixedString<64>> btree(disk);
                 rids = btree.rangeSearch(FixedString<64>(low_str), FixedString<64>(high_str));
                 for (auto& rid : rids) {
-                    Record<int> rec = sf.readByPointer(fromRID(rid)); // <- fromRID
+                    Record<int> rec = sf.readByPointer(fromRID(rid));
                     string val_rec = deserializeField(rec.data + col_offset, col_tipo);
                     FixedString<64> val(val_rec);
                     sf.remove(rec.key);
@@ -1041,8 +1031,117 @@ void EVALVisitor::visit(DeleteStmt* s) {
             }
             cout << "Eliminados " << count << " registros\n";
         }
+
+    } else if (SpatialRaidusExp* sr = dynamic_cast<SpatialRaidusExp*>(s->where_cond)) {
+        IdExp* campo = dynamic_cast<IdExp*>(sr->column);
+        if (!campo) { cerr << "columna mal formada\n"; return; }
+
+        int col_offset = 0;
+        string col_tipo = "";
+        for (auto& col : cols) {
+            if (col.first == campo->value) { col_tipo = col.second; break; }
+            col_offset += getTypeSize(col.second);
+        }
+        if (col_tipo != "POINT") { cerr << "columna no es POINT\n"; return; }
+
+        auto [idx_type, idx_col_tipo] = getIndexInfo(s->table, campo->value);
+
+        if (idx_type == "rtree") {
+            cout << "[Metodo: RTree rangeSearch + remove]\n";
+            long long idIndice = getRtreeId(s->table, campo->value);
+            string rtree_path = "archivos/"+s->table+"_"+campo->value+".rtree";
+            MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
+            SpatialIndex::id_type rtreeId = (SpatialIndex::id_type)idIndice;
+            SpatialIndex::ISpatialIndex* arbol =
+                SpatialIndex::RTree::loadRTree(*almacenamiento, rtreeId);
+
+            auto rids = Rtree_rangeSearch(*arbol, sr->center->x, sr->center->y, sr->radius);
+            for (auto& rid : rids) {
+                Record<int> rec = sf.readByPointer(fromRID_r(rid));
+                sf.remove(rec.key);
+            }
+            cout << "Eliminados " << rids.size() << " registros\n";
+
+            delete arbol;
+            delete almacenamiento;
+        } else {
+            cout << "[Metodo: SequentialFile scanAll + filtro radio + remove]\n";
+            auto records = sf.scanAll();
+            int count = 0;
+            for (auto& r : records) {
+                double x, y;
+                memcpy(&x, r.data + col_offset, sizeof(double));
+                memcpy(&y, r.data + col_offset + sizeof(double), sizeof(double));
+                double dist = sqrt(pow(x - sr->center->x, 2) + pow(y - sr->center->y, 2));
+                if (dist <= sr->radius) {
+                    sf.remove(r.key);
+                    count++;
+                }
+            }
+            cout << "Eliminados " << count << " registros\n";
+        }
+
+    } else if (SpatialKnnExp* sk = dynamic_cast<SpatialKnnExp*>(s->where_cond)) {
+        IdExp* campo = dynamic_cast<IdExp*>(sk->column);
+        if (!campo) { cerr << "columna mal formada\n"; return; }
+
+        int col_offset = 0;
+        string col_tipo = "";
+        for (auto& col : cols) {
+            if (col.first == campo->value) { col_tipo = col.second; break; }
+            col_offset += getTypeSize(col.second);
+        }
+        if (col_tipo != "POINT") { cerr << "columna no es POINT\n"; return; }
+
+        auto [idx_type, idx_col_tipo] = getIndexInfo(s->table, campo->value);
+
+        if (idx_type == "rtree") {
+            cout << "[Metodo: RTree kNN + remove]\n";
+            long long idIndice = getRtreeId(s->table, campo->value);
+            string rtree_path = "archivos/"+s->table+"_"+campo->value+".rtree";
+            MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
+            SpatialIndex::id_type rtreeId = (SpatialIndex::id_type)idIndice;
+            SpatialIndex::ISpatialIndex* arbol =
+                SpatialIndex::RTree::loadRTree(*almacenamiento, rtreeId);
+
+            double coords[] = {sk->center->x, sk->center->y};
+            SpatialIndex::Point punto(coords, 2);
+            auto rids = Rtree_kNN(*arbol, punto, sk->k);
+            for (auto& rid : rids) {
+                Record<int> rec = sf.readByPointer(fromRID_r(rid));
+                sf.remove(rec.key);
+            }
+            cout << "Eliminados " << rids.size() << " registros\n";
+
+            delete arbol;
+            delete almacenamiento;
+        } else {
+            cout << "[Metodo: SequentialFile scanAll + kNN manual + remove]\n";
+            auto records = sf.scanAll();
+
+            vector<pair<double, Record<int>>> distancias;
+            for (auto& r : records) {
+                double x, y;
+                memcpy(&x, r.data + col_offset, sizeof(double));
+                memcpy(&y, r.data + col_offset + sizeof(double), sizeof(double));
+                double dist = sqrt(pow(x - sk->center->x, 2) + pow(y - sk->center->y, 2));
+                distancias.push_back({dist, r});
+            }
+
+            sort(distancias.begin(), distancias.end(),
+                [](const auto& a, const auto& b) { return a.first < b.first; });
+
+            int count = 0;
+            for (auto& [dist, r] : distancias) {
+                if (count >= sk->k) break;
+                sf.remove(r.key);
+                count++;
+            }
+            cout << "Eliminados " << count << " registros\n";
+        }
     }
 }
+
 ///////////////////////////////////////////////////////////////////////////////////
 //Helpers
 
@@ -1233,12 +1332,27 @@ RecordPointer fromRID_h(const RID_h& rid) {
     return RecordPointer(false, rid.page_id, rid.slot);
 }
 
-void EVALVisitor::reconstruirIndices(const string& tabla,const vector<pair<string,string>>& cols,SequentialFile<int>& sf) {
+Rtree_RID toRID_r(const RecordPointer& ptr) {
+    return Rtree_RID{
+        ptr.in_aux ? -(uint32_t)ptr.page_id - 1 : (uint32_t)ptr.page_id,
+        (uint32_t)ptr.record_idx
+    };
+}
+
+RecordPointer fromRID_r(const Rtree_RID& rid) {
+    if ((int32_t)rid.page < 0) {
+        return RecordPointer(true, -(long)((int32_t)rid.page + 1), rid.slot);
+    }
+    return RecordPointer(false, rid.page, rid.slot);
+}
+
+void EVALVisitor::reconstruirIndices(const string& tabla, const vector<pair<string,string>>& cols, SequentialFile<int>& sf) {
     auto records = sf.scanAllWithPtr();
 
     int off = 0;
     for (auto& col : cols) {
         auto [idx_type, idx_col_tipo] = getIndexInfo(tabla, col.first);
+
         if (idx_type == "btree") {
             string btree_path = "archivos/"+tabla+"_"+col.first+".btree";
             remove(btree_path.c_str());
@@ -1248,22 +1362,23 @@ void EVALVisitor::reconstruirIndices(const string& tabla,const vector<pair<strin
                 BPlusTree<int> btree(disk);
                 for (auto& [rec, ptr] : records) {
                     int val; memcpy(&val, rec.data + off, sizeof(int));
-                    btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+                    btree.insert(val, toRID(ptr));
                 }
             } else if (col.second == "FLOAT") {
                 BPlusTree<float> btree(disk);
                 for (auto& [rec, ptr] : records) {
                     float val; memcpy(&val, rec.data + off, sizeof(float));
-                    btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+                    btree.insert(val, toRID(ptr));
                 }
             } else if (col.second.find("CHAR") != string::npos) {
                 BPlusTree<FixedString<64>> btree(disk);
                 for (auto& [rec, ptr] : records) {
                     FixedString<64> val(rec.data + off);
-                    btree.insert(val, RID{(int)ptr.page_id, ptr.record_idx});
+                    btree.insert(val, toRID(ptr));
                 }
             }
-            cout << "Indice reconstruido: " << col.first << "" << "\n";
+            cout << "Btree reconstruido: " << col.first << "\n";
+
         } else if (idx_type == "ehash") {
             string ehash_path = "archivos/"+tabla+"_"+col.first+".ehash";
             remove(ehash_path.c_str());
@@ -1273,23 +1388,67 @@ void EVALVisitor::reconstruirIndices(const string& tabla,const vector<pair<strin
                 ExtendibleHashing<int> ehash(disk);
                 for (auto& [rec, ptr] : records) {
                     int val; memcpy(&val, rec.data + off, sizeof(int));
-                    ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+                    ehash.insert_hash(val, toRID_h(ptr));
                 }
             } else if (col.second == "FLOAT") {
                 ExtendibleHashing<float> ehash(disk);
                 for (auto& [rec, ptr] : records) {
                     float val; memcpy(&val, rec.data + off, sizeof(float));
-                    ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+                    ehash.insert_hash(val, toRID_h(ptr));
                 }
             } else if (col.second.find("CHAR") != string::npos) {
                 ExtendibleHashing<FixedString_H<64>> ehash(disk);
                 for (auto& [rec, ptr] : records) {
                     FixedString_H<64> val(rec.data + off);
-                    ehash.insert_hash(val, RID_h{(int)ptr.page_id, ptr.record_idx});
+                    ehash.insert_hash(val, toRID_h(ptr));
                 }
             }
             cout << "EHash reconstruido: " << col.first << "\n";
+
+        } else if (idx_type == "rtree" && col.second == "POINT") {
+            string rtree_path = "archivos/"+tabla+"_"+col.first+".rtree";
+            remove(rtree_path.c_str());
+            MiPagedDiskStorageManager* almacenamiento = new MiPagedDiskStorageManager(rtree_path);
+
+            SpatialIndex::id_type idIndice;
+            SpatialIndex::ISpatialIndex* arbol =
+                SpatialIndex::RTree::createNewRTree(
+                    *almacenamiento,
+                    0.7, 10, 10, 2,
+                    SpatialIndex::RTree::RV_RSTAR,
+                    idIndice
+                );
+
+            for (auto& [rec, ptr] : records) {
+                double x, y;
+                memcpy(&x, rec.data + off, sizeof(double));
+                memcpy(&y, rec.data + off + sizeof(double), sizeof(double));
+                Rtree_insertarPuntoEnArbol(arbol, x, y, toRID_r(ptr));
+            }
+
+            arbol->flush();
+            almacenamiento->flush();
+            delete arbol;
+            delete almacenamiento;
+
+            // actualizar el id del rtree en .indexes
+            vector<string> lineas;
+            ifstream fin("archivos/"+tabla+".indexes");
+            string line;
+            while (getline(fin, line)) {
+                if (line.find(col.first+":rtree") != string::npos)
+                    lineas.push_back(col.first+":rtree:POINT:"+to_string(idIndice));
+                else
+                    lineas.push_back(line);
+            }
+            fin.close();
+            ofstream fout("archivos/"+tabla+".indexes");
+            for (auto& l : lineas) fout << l << "\n";
+            fout.close();
+
+            cout << "RTree reconstruido: " << col.first << "\n";
         }
+
         off += getTypeSize(col.second);
     }
 }
