@@ -47,3 +47,80 @@ Archivos Binarios Persistentes
 ```
 
 ---
+# Técnicas de Indexación Implementadas
+
+## Sequential File
+
+Estructura persistente basada en:
+
+- archivo principal ordenado
+- archivo auxiliar de inserciones
+- enlaces lógicos entre registros
+- rebuild automático
+
+Soporta:
+
+- búsquedas puntuales
+- búsquedas por rango
+- inserciones eficientes
+- eliminación lógica
+
+---
+
+## B+ Tree
+
+Implementación completamente *disk-based* con soporte para:
+
+- búsquedas puntuales
+- búsquedas por rango
+- claves duplicadas
+- split y merge dinámico
+- eliminación por RID
+
+Las hojas se encuentran enlazadas secuencialmente para optimizar range queries.
+
+---
+
+## Extendible Hashing
+
+Hash dinámico persistente basado en:
+
+- directorio expandible
+- buckets persistentes
+- profundidad global y local
+- chaining híbrido
+
+Optimizado para búsquedas exactas en tiempo promedio cercano a `O(1)`.
+
+---
+
+## R-Tree
+
+Índice espacial bidimensional utilizando `libspatialindex`.
+
+Permite:
+
+- consultas espaciales
+- búsquedas por ubicación
+- indexación geográfica
+- recuperación mediante RID
+
+---
+
+# Persistencia y Manejo de Disco
+
+Todas las estructuras operan directamente sobre disco utilizando páginas de:
+
+```text
+PAGE_SIZE = 4096 bytes
+```
+
+Cada operación contabiliza:
+
+- lecturas de disco
+- escrituras de disco
+
+permitiendo medir experimentalmente el costo real de cada operación.
+
+---
+
