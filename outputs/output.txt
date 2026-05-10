@@ -1,6 +1,5 @@
-id	dni	nombre	edad	genero	altura	
+META no existe - archivo nuevo
+id	
 ----------------------------------------
-BTree
-100000	54641423	Carlos	37	M	1.800000	
 
-Tiempo de ejecución: 731600 ns
+Tiempo de ejecución: 2527800 ns

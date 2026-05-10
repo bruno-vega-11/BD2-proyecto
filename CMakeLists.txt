@@ -18,7 +18,12 @@ add_executable(Proyecto main.cpp
         Index/BPTree.cpp
         Files/SequentialFile.cpp
         Index/ExtendibleHashing.h
-        )
+        rtree/KNNVisitor.h
+        rtree/MiPagedDiskStorageManager.h
+        rtree/RangeSearchVisitor.h
+        rtree/Rtree_helpers.cpp
+        rtree/Rtree_helpers.h
+)
 # Para que encuentre los .h
 target_include_directories(Proyecto PUBLIC libspatialindex/include)
 
