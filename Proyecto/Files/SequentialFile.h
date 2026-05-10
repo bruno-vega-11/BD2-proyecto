@@ -13,6 +13,7 @@
 #include <cstring>
 #include <cstdio>
 #include <utility>
+#include "../Parser/disk_counter.h"
 
 constexpr size_t SEQ_PAGE_SIZE = 4096;
 

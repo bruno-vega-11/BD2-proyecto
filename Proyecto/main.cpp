@@ -8,6 +8,7 @@
 #include "Parser/parser.h"
 #include "Parser/visitor.h"
 #include "Parser/ast.h"
+#include "Parser/disk_counter.h"
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -70,6 +71,13 @@ int main(int argc, const char* argv[]) {
         }
         auto end = chrono::high_resolution_clock::now();
         auto duration = chrono::duration_cast<chrono::nanoseconds>(end - start);
+
+        cout << "── Métricas ──────────────────────────\n";
+        cout << "  Tiempo       : " << duration << " ms\n";
+        cout << "  Accesos disco: " << DiskCounter::total()
+            << "  (reads=" << DiskCounter::reads
+            << ", writes=" << DiskCounter::writes << ")\n";
+        cout << "──────────────────────────────────────\n\n";
 
         cout << "\nTiempo de ejecución: " << duration.count() << " ns\n";
         delete ast;

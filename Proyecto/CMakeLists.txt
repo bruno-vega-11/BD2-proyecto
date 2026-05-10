@@ -23,6 +23,8 @@ add_executable(Proyecto main.cpp
         rtree/RangeSearchVisitor.h
         rtree/Rtree_helpers.cpp
         rtree/Rtree_helpers.h
+        Parser/disk_counter.cpp
+        Parser/disk_counter.h
 )
 # Para que encuentre los .h
 target_include_directories(Proyecto PUBLIC libspatialindex/include)

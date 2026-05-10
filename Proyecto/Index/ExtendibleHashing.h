@@ -6,6 +6,7 @@
 #define EXTENDIBLEHASHING_H
 #include <vector>
 #include <cstdint>
+#include "../Parser/disk_counter.h"  
 
 using namespace std;
 
@@ -155,6 +156,7 @@ public:
 
     Page_h read(PageID id) {
         ++readCount;
+        DiskCounter::reads++;   
         Page_h p{};
         file.clear();
         file.seekg((long long)id * PAGE_SIZE_H);
@@ -167,6 +169,7 @@ public:
 
     void write(PageID id, const Page_h& p) {
         ++writeCount;
+        DiskCounter::writes++;  
         file.clear();
         file.seekp((long long)id * PAGE_SIZE_H);
         file.write(p.data, PAGE_SIZE_H);

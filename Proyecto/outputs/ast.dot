@@ -1,11 +1,3 @@
 digraph AST {
-  node0 [label="PROGRAM", shape=box3d, style=filled, fillcolor=lightgrey];
-  node1 [label="SELECT *\nFROM: hola", shape=rect, style=filled, fillcolor=lightyellow];
-  node2 [label="=", shape=diamond];
-  node3 [label="ID: dni", shape=ellipse, color=green];
-  node2 -> node3;
-  node4 [label="54641423", shape=ellipse, color=blue];
-  node2 -> node4;
-  node1 -> node2 [label="WHERE"];
-  node0 -> node1;
+    empty [label="AST vacío"];
 }

@@ -1,4 +1,3 @@
-
 #pragma once
 #include <spatialindex/SpatialIndex.h>
 #include <fstream>
@@ -8,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <cstdint>
+#include "../Parser/disk_counter.h" 
 
 class MiPagedDiskStorageManager : public SpatialIndex::IStorageManager {
 private:
@@ -86,6 +86,8 @@ private:
         }
 
         contadorLecturas++;
+        DiskCounter::reads++;  
+
         return pagina;
     }
 
@@ -106,6 +108,7 @@ private:
         }
 
         contadorEscrituras++;
+        DiskCounter::writes++; 
     }
 
     SpatialIndex::id_type leerNextPage(const std::vector<uint8_t>& pagina) const {

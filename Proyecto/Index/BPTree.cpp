@@ -30,13 +30,16 @@ Disk::Disk(const string& filename) {
 }
 
 Page Disk::read(PageID id) {
-    ++readCount; Page p{};
+    ++readCount;
+    DiskCounter::reads++;   // <-- AGREGADO
+    Page p{};
     file.seekg((long long)id * PAGE_SIZE);
     file.read(p.data, PAGE_SIZE); return p;
 }
 
 void Disk::write(PageID id, const Page& p) {
     ++writeCount;
+    DiskCounter::writes++;  // <-- AGREGADO
     file.seekp((long long)id * PAGE_SIZE);
     file.write(p.data, PAGE_SIZE); file.flush(); saveMeta();
 }

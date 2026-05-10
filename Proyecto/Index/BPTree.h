@@ -1,5 +1,6 @@
 #pragma once
 #include <bits/stdc++.h>
+#include "../Parser/disk_counter.h" 
 using namespace std;
 
 static constexpr int PAGE_SIZE = 4096;

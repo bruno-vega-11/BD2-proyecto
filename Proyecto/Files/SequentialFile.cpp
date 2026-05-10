@@ -13,6 +13,7 @@ RecordPointer::RecordPointer(bool aux, long pid, int idx) : in_aux(aux), page_id
 bool RecordPointer::is_null() const { return page_id == -1; }
 
 // --- Implementación DiskManager ---
+// --- Implementación DiskManager ---
 DiskManager::DiskManager() {}
 DiskManager::DiskManager(const std::string& name) { open(name); }
 DiskManager::~DiskManager() { close(); }
@@ -46,18 +47,20 @@ long DiskManager::get_page_count() {
 
 template <typename KeyType>
 void DiskManager::read_page(long page_id, SeqPage<KeyType>& page) {
+    read_count++;
+    DiskCounter::reads++;   // <-- AGREGADO
     file.clear();
     file.seekg(page_id * SEQ_PAGE_SIZE, std::ios::beg);
     file.read(reinterpret_cast<char*>(&page), sizeof(SeqPage<KeyType>));
-    read_count++;
 }
 
 template <typename KeyType>
 void DiskManager::write_page(long page_id, const SeqPage<KeyType>& page) {
+    write_count++;
+    DiskCounter::writes++;  // <-- AGREGADO
     file.clear();
     file.seekp(page_id * SEQ_PAGE_SIZE, std::ios::beg);
     file.write(reinterpret_cast<const char*>(&page), sizeof(SeqPage<KeyType>));
-    write_count++;
 }
 
 // --- Implementación SequentialFile ---
