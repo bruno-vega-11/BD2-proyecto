@@ -1,4 +1,0 @@
-=== STDOUT ===
-
-=== STDERR ===
-Error al parsear: No se esperaba el token

@@ -1,1 +1,0 @@
-SELECT * FROM lugares WHERE ubicacion IN (POINT(10.0,20.0), K 3);

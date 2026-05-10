@@ -1,8 +1,0 @@
-=== STDOUT ===
-Parseo exitoso
-META no existe - archivo nuevo
-Tabla 'lugares' creada con 15 registros
-
-Tiempo de ejecución: 15 ms
-
-=== STDERR ===

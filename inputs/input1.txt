@@ -1,1 +1,0 @@
-CREATE TABLE lugares FROM ("data.csv")(id INT PRIMARY KEY INCREMENTAL,nombre CHAR(20),rating FLOAT,ubicacion POINT);
