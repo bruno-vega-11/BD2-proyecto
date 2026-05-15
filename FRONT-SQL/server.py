@@ -2,7 +2,12 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import subprocess, json, os
 
 # ── Paths ──────────────────────────────────────────────────────────────
-BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Proyecto")
+if os.path.exists('/.dockerenv'):
+    BASE_DIR = "/app"
+else:
+    # Tu ruta local de Windows de siempre
+    BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Proyecto")
+
 BASE_DIR = os.path.normpath(BASE_DIR)
 
 PARSER_EXE   = os.path.join(BASE_DIR, "cmake-build-debug", "Proyecto")
@@ -11,6 +16,7 @@ TOKENS_FILE  = os.path.join(BASE_DIR, "outputs", "tokens.txt")
 AST_FILE     = os.path.join(BASE_DIR, "outputs", "ast.dot")
 OUTPUT_FILE  = os.path.join(BASE_DIR, "outputs", "output.txt")
 ARCHIVOS_DIR = os.path.join(BASE_DIR, "archivos")
+# ───────────────────────────────────────────────────────────────────────
 # ───────────────────────────────────────────────────────────────────────
 
 class Handler(BaseHTTPRequestHandler):
