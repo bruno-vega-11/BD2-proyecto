@@ -18,6 +18,35 @@ El proyecto integra:
 
 ---
 
+# Instalación
+Este proyecto está completamente contenedorizado utilizando **Docker** y **Docker Compose**. Toda la infraestructura (Frontend en Node.js, Backend en Python y el Mini DBMS ejecutable en C++) se compila, configura y levanta de manera automática con un solo comando.
+
+---
+
+###  Requisitos Previos
+* Tener instalado [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+* Asegurarse de que la aplicación de Docker Desktop esté abierta y ejecutándose.
+
+---
+
+### Pasos para Ejecutar el Proyecto
+
+#### 1. Clonar o abrir la carpeta del proyecto
+Abra una terminal (PowerShell, CMD, Bash o la terminal de su preferencia) posicionada en la raíz del proyecto (donde se encuentra el archivo `docker-compose.yml`).
+
+#### 2. Construir e iniciar los contenedores
+Ejecute el siguiente comando para descargar las imágenes necesarias, instalar dependencias de Node/Python y compilar automáticamente el código fuente de C++:
+
+```bash
+docker compose up -d --build
+```
+---
+
+Una vez que la terminal indique que los servicios han iniciado con éxito, puede ingresar desde su navegador web:
+- Interfaz de Usuario (Frontend): http://localhost:5173
+- API del Servidor (Backend): http://localhost:3000
+- 
+---
 # Objetivos
 
 - Implementar estructuras de indexación persistentes sobre memoria secundaria.
