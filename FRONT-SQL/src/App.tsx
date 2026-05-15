@@ -53,6 +53,9 @@ interface RTreeVizResponse {
   points: RTreePoint[];
 }
 
+// ── API URL ───────────────────────────────────────────────────────────────────
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
 // ── Token parsing ─────────────────────────────────────────────────────────────
 function parseTokens(raw: string): ParsedTokenRow[] {
   const regex = /TOKEN\(([^,)]+)(?:,\s*"([^"]*)")?\)/g;
@@ -177,78 +180,21 @@ function parseRTreeVizFromOutput(output: string): RTreeVizResponse | null {
 
 // ── SQL syntax highlight ──────────────────────────────────────────────────────
 const KEYWORDS = new Set([
-  "SELECT",
-  "FROM",
-  "WHERE",
-  "INSERT",
-  "INTO",
-  "VALUES",
-  "UPDATE",
-  "SET",
-  "DELETE",
-  "CREATE",
-  "TABLE",
-  "DROP",
-  "ALTER",
-  "ADD",
-  "INDEX",
-  "JOIN",
-  "LEFT",
-  "RIGHT",
-  "INNER",
-  "OUTER",
-  "ON",
-  "AS",
-  "AND",
-  "OR",
-  "NOT",
-  "IN",
-  "IS",
-  "NULL",
-  "LIKE",
-  "BETWEEN",
-  "ORDER",
-  "BY",
-  "GROUP",
-  "HAVING",
-  "LIMIT",
-  "OFFSET",
-  "DISTINCT",
-  "ALL",
-  "UNION",
-  "EXISTS",
-  "CASE",
-  "WHEN",
-  "THEN",
-  "ELSE",
-  "END",
-  "PRIMARY",
-  "KEY",
-  "FOREIGN",
-  "REFERENCES",
-  "UNIQUE",
-  "DEFAULT",
-  "CONSTRAINT",
-  "DATABASE",
-  "USE",
-  "SHOW",
-  "DESCRIBE",
-  "TRUNCATE",
-  "BEGIN",
-  "COMMIT",
-  "ROLLBACK",
-  "INCREMENTAL",
-  "INT",
-  "CHAR",
-  "FLOAT",
+  "SELECT","FROM","WHERE","INSERT","INTO","VALUES","UPDATE","SET",
+  "DELETE","CREATE","TABLE","DROP","ALTER","ADD","INDEX","JOIN",
+  "LEFT","RIGHT","INNER","OUTER","ON","AS","AND","OR","NOT","IN",
+  "IS","NULL","LIKE","BETWEEN","ORDER","BY","GROUP","HAVING","LIMIT",
+  "OFFSET","DISTINCT","ALL","UNION","EXISTS","CASE","WHEN","THEN",
+  "ELSE","END","PRIMARY","KEY","FOREIGN","REFERENCES","UNIQUE",
+  "DEFAULT","CONSTRAINT","DATABASE","USE","SHOW","DESCRIBE","TRUNCATE",
+  "BEGIN","COMMIT","ROLLBACK","INCREMENTAL","INT","CHAR","FLOAT",
 ]);
 
 function highlightSQL(code: string): React.ReactNode[] {
   const tokenRe =
     /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|--[^\n]*|\/\*[\s\S]*?\*\/|[A-Za-z_]\w*|\d+(?:\.\d+)?|[^\s\w])/g;
   const parts: React.ReactNode[] = [];
-  let last = 0,
-    key = 0;
+  let last = 0, key = 0;
   let m: RegExpExecArray | null;
   while ((m = tokenRe.exec(code)) !== null) {
     if (m.index > last) parts.push(code.slice(last, m.index));
@@ -277,25 +223,13 @@ function highlightSQL(code: string): React.ReactNode[] {
 
 // ── Token color map ───────────────────────────────────────────────────────────
 const TYPE_COLORS: Record<string, string> = {
-  SELECT: "#7C6FFF",
-  FROM: "#7C6FFF",
-  WHERE: "#7C6FFF",
-  INSERT: "#7C6FFF",
-  INTO: "#7C6FFF",
-  VALUES: "#7C6FFF",
-  UPDATE: "#7C6FFF",
-  DELETE: "#7C6FFF",
-  CREATE: "#7C6FFF",
-  TABLE: "#7C6FFF",
-  DROP: "#7C6FFF",
-  ID: "#38BDF8",
-  STRING: "#4ADE80",
-  NUMBER: "#FB923C",
-  PCOMA: "#94A3B8",
-  COMA: "#94A3B8",
-  LPAREN: "#94A3B8",
-  RPAREN: "#94A3B8",
-  END: "#475569",
+  SELECT: "#7C6FFF", FROM: "#7C6FFF", WHERE: "#7C6FFF",
+  INSERT: "#7C6FFF", INTO: "#7C6FFF", VALUES: "#7C6FFF",
+  UPDATE: "#7C6FFF", DELETE: "#7C6FFF", CREATE: "#7C6FFF",
+  TABLE: "#7C6FFF", DROP: "#7C6FFF",
+  ID: "#38BDF8", STRING: "#4ADE80", NUMBER: "#FB923C",
+  PCOMA: "#94A3B8", COMA: "#94A3B8",
+  LPAREN: "#94A3B8", RPAREN: "#94A3B8", END: "#475569",
 };
 const tokenColor = (t: string) => TYPE_COLORS[t] ?? "#E2E8F0";
 
@@ -361,7 +295,6 @@ function SpatialPlane({ data }: { data: RTreeVizResponse }) {
               : `kNN: punto (${query.x}, ${query.y}), k = ${query.k}`}
           </div>
         </div>
-
         <div className="spatial-io">
           <span>Reads: {data.io?.reads ?? 0}</span>
           <span>Writes: {data.io?.writes ?? 0}</span>
@@ -374,87 +307,36 @@ function SpatialPlane({ data }: { data: RTreeVizResponse }) {
         role="img"
         aria-label="Plano de resultados RTree"
       >
-        {/* Fondo */}
-        <rect
-          x="0"
-          y="0"
-          width={width}
-          height={height}
-          rx="12"
-          className="plane-bg"
-        />
+        <rect x="0" y="0" width={width} height={height} rx="12" className="plane-bg" />
+        <line x1={offsetX} y1={height - offsetY} x2={width - offsetX} y2={height - offsetY} className="axis-line" />
+        <line x1={offsetX} y1={offsetY} x2={offsetX} y2={height - offsetY} className="axis-line" />
+        <text x={width - offsetX + 8} y={height - offsetY + 4} className="axis-label">x</text>
+        <text x={offsetX - 12} y={offsetY - 8} className="axis-label">y</text>
 
-        {/* Ejes */}
-        <line
-          x1={offsetX}
-          y1={height - offsetY}
-          x2={width - offsetX}
-          y2={height - offsetY}
-          className="axis-line"
-        />
-        <line
-          x1={offsetX}
-          y1={offsetY}
-          x2={offsetX}
-          y2={height - offsetY}
-          className="axis-line"
-        />
-
-        <text
-          x={width - offsetX + 8}
-          y={height - offsetY + 4}
-          className="axis-label"
-        >
-          x
-        </text>
-        <text x={offsetX - 12} y={offsetY - 8} className="axis-label">
-          y
-        </text>
-
-        {/* Círculo de radio para Range Search */}
         {data.type === "rangeSearch" && query.radio != null && (
-          <circle
-            cx={querySvgX}
-            cy={querySvgY}
-            r={query.radio * scale}
-            className="range-circle"
-          />
+          <circle cx={querySvgX} cy={querySvgY} r={query.radio * scale} className="range-circle" />
         )}
 
-        {/* Líneas para kNN */}
         {data.type === "kNN" &&
-          puntos
-            .filter((p) => p.selected)
-            .map((p) => (
-              <line
-                key={`line-${p.ridPacked}`}
-                x1={querySvgX}
-                y1={querySvgY}
-                x2={sx(p.x)}
-                y2={sy(p.y)}
-                className="knn-line"
-              />
-            ))}
+          puntos.filter((p) => p.selected).map((p) => (
+            <line
+              key={`line-${p.ridPacked}`}
+              x1={querySvgX} y1={querySvgY}
+              x2={sx(p.x)} y2={sy(p.y)}
+              className="knn-line"
+            />
+          ))}
 
-        {/* Puntos */}
         {puntos.map((p) => {
           const px = sx(p.x);
           const py = sy(p.y);
-
           return (
             <g key={p.ridPacked}>
-              <circle
-                cx={px}
-                cy={py}
-                r={p.selected ? 7 : 5}
-                className={p.selected ? "point-selected" : "point-normal"}
-              />
-
+              <circle cx={px} cy={py} r={p.selected ? 7 : 5}
+                className={p.selected ? "point-selected" : "point-normal"} />
               <text x={px + 10} y={py - 10} className="point-label">
-                RID({p.rid.page},{p.rid.slot})
-                {p.rank != null ? ` #${p.rank}` : ""}
+                RID({p.rid.page},{p.rid.slot}){p.rank != null ? ` #${p.rank}` : ""}
               </text>
-
               <text x={px + 10} y={py + 8} className="point-coord">
                 ({p.x}, {p.y}) d={p.distance.toFixed(2)}
               </text>
@@ -462,24 +344,16 @@ function SpatialPlane({ data }: { data: RTreeVizResponse }) {
           );
         })}
 
-        {/* Punto de consulta */}
         <circle cx={querySvgX} cy={querySvgY} r="9" className="query-point" />
-
         <text x={querySvgX + 12} y={querySvgY + 4} className="query-label">
           Query ({query.x}, {query.y})
         </text>
       </svg>
 
       <div className="spatial-footer">
-        <span className="legend-item">
-          <span className="legend-dot selected" /> Resultado
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot normal" /> No seleccionado
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot query" /> Punto de consulta
-        </span>
+        <span className="legend-item"><span className="legend-dot selected" /> Resultado</span>
+        <span className="legend-item"><span className="legend-dot normal" /> No seleccionado</span>
+        <span className="legend-item"><span className="legend-dot query" /> Punto de consulta</span>
         <span className="spatial-results">RIDs: {resultadoTexto}</span>
       </div>
     </div>
@@ -522,8 +396,7 @@ export default function App() {
     if (e.key !== "Tab") return;
     e.preventDefault();
     const el = e.currentTarget;
-    const s = el.selectionStart,
-      en = el.selectionEnd;
+    const s = el.selectionStart, en = el.selectionEnd;
     const next = query.slice(0, s) + "    " + query.slice(en);
     setQuery(next);
     requestAnimationFrame(() => el.setSelectionRange(s + 4, s + 4));
@@ -548,7 +421,8 @@ export default function App() {
     }
 
     try {
-      const res = await fetch("http://localhost:3000/upload", {
+      // ✅ usa API_URL en lugar de localhost hardcodeado
+      const res = await fetch(`${API_URL}/upload`, {
         method: "POST",
         body: formData,
       });
@@ -577,7 +451,8 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:3000/", {
+      // ✅ usa API_URL en lugar de localhost hardcodeado
+      const res = await fetch(`${API_URL}/`, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: query,
@@ -610,8 +485,6 @@ export default function App() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0B0F19; font-family: 'DM Sans', sans-serif; color: #E2E8F0; min-height: 100vh; }
         .app { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; display: flex; flex-direction: column; gap: 20px; }
-
-        /* header */
         .header { display: flex; align-items: center; justify-content: space-between; }
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: #7C6FFF; box-shadow: 0 0 10px #7C6FFF88; }
@@ -621,8 +494,6 @@ export default function App() {
         .run-btn:hover:not(:disabled) { background: #6A5FEE; }
         .run-btn:active:not(:disabled) { transform: scale(0.97); }
         .run-btn:disabled { opacity: 0.5; cursor: default; }
-
-        /* csv */
         .csv-section { background: #111827; border: 1px solid #1E293B; border-radius: 12px; overflow: hidden; }
         .csv-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #1E293B; }
         .csv-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -645,8 +516,6 @@ export default function App() {
         .csv-table td { padding: 6px 12px; border-bottom: 1px solid #0F172A; color: #94A3B8; }
         .csv-table tr:hover td { background: #161D2E; }
         .csv-row-num { color: #334155 !important; user-select: none; width: 32px; }
-
-        /* editor */
         .editor-wrap { background: #111827; border: 1px solid #1E293B; border-radius: 12px; overflow: hidden; }
         .editor-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #1E293B; }
         .editor-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -665,11 +534,7 @@ export default function App() {
         .hl-comment { color: #475569; font-style: italic; }
         .hl-ident   { color: #38BDF8; }
         .hl-punct   { color: #94A3B8; }
-
-        /* error */
         .error-banner { background: #1E0A0A; border: 1px solid #7F1D1D; border-radius: 8px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #FCA5A5; display: flex; gap: 8px; }
-
-        /* results */
         .results { background: #111827; border: 1px solid #1E293B; border-radius: 12px; overflow: hidden; }
         .tabs { display: flex; border-bottom: 1px solid #1E293B; }
         .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: transparent; color: #475569; font-family: 'DM Sans', sans-serif; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; margin-bottom: -1px; }
@@ -677,16 +542,12 @@ export default function App() {
         .tab-btn:hover:not(.active) { color: #94A3B8; }
         .tab-count { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #1E293B; font-size: 10px; margin-left: 6px; color: #7C6FFF; }
         .tab-pane { padding: 16px; min-height: 180px; }
-
-        /* output */
         .output-wrap { background: #0B0F19; border-radius: 8px; border: 1px solid #1E293B; overflow: auto; max-height: 360px; }
         .output-code { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #94A3B8; padding: 14px 16px; white-space: pre; line-height: 1.8; }
         .out-ok   { color: #4ADE80; }
         .out-err  { color: #F87171; }
         .out-info { color: #38BDF8; }
         .out-time { color: #FB923C; }
-
-        /* token table */
         .token-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
         .token-table th { text-align: left; color: #475569; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 0 12px 10px; font-weight: 500; }
         .token-table td { padding: 7px 12px; border-top: 1px solid #1E293B; vertical-align: middle; }
@@ -694,191 +555,37 @@ export default function App() {
         .token-row-num { color: #334155; user-select: none; width: 32px; }
         .type-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; background: #1E293B; }
         .token-value code { background: #1E293B; padding: 1px 6px; border-radius: 4px; color: #CBD5E1; }
-
-        /* ast */
         .ast-wrap { background: #0B0F19; border-radius: 8px; border: 1px solid #1E293B; overflow: auto; max-height: 320px; }
         .ast-code { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #64748B; padding: 14px 16px; white-space: pre; line-height: 1.7; }
-
-        /* empty */
         .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 140px; color: #334155; }
         .empty-icon { font-size: 28px; opacity: 0.4; }
         .empty-text { font-size: 13px; }
-
-        /* spatial plane */
-.spatial-card {
-  margin-top: 14px;
-  background: #0B0F19;
-  border: 1px solid #1E293B;
-  border-radius: 12px;
-  padding: 14px;
-}
-
-.spatial-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.spatial-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #E2E8F0;
-}
-
-.spatial-sub {
-  margin-top: 3px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: #64748B;
-}
-
-.spatial-io {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: #94A3B8;
-}
-
-.spatial-io span {
-  background: #111827;
-  border: 1px solid #1E293B;
-  border-radius: 6px;
-  padding: 4px 8px;
-}
-
-.spatial-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 12px;
-  border: 1px solid #1E293B;
-}
-
-.plane-bg {
-  fill: #020617;
-}
-
-.axis-line {
-  stroke: #334155;
-  stroke-width: 1.2;
-}
-
-.axis-label {
-  fill: #64748B;
-  font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.range-circle {
-  fill: rgba(124, 111, 255, 0.08);
-  stroke: #7C6FFF;
-  stroke-width: 2;
-  stroke-dasharray: 6 5;
-}
-
-.knn-line {
-  stroke: #38BDF8;
-  stroke-width: 1.5;
-  stroke-dasharray: 5 5;
-  opacity: 0.75;
-}
-
-.point-selected {
-  fill: #38BDF8;
-  stroke: #E0F2FE;
-  stroke-width: 2;
-}
-
-.point-normal {
-  fill: #475569;
-  stroke: #94A3B8;
-  stroke-width: 1.5;
-  opacity: 0.8;
-}
-
-.query-point {
-  fill: #FB923C;
-  stroke: #FED7AA;
-  stroke-width: 2;
-}
-
-.point-label {
-  fill: #E2E8F0;
-  font-size: 11px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.point-coord {
-  fill: #64748B;
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.query-label {
-  fill: #FED7AA;
-  font-size: 11px;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.spatial-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: #94A3B8;
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.legend-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  display: inline-block;
-}
-
-.legend-dot.selected {
-  background: #38BDF8;
-}
-
-.legend-dot.normal {
-  background: #475569;
-}
-
-.legend-dot.query {
-  background: #FB923C;
-}
-
-.spatial-results {
-  margin-left: auto;
-  color: #CBD5E1;
-}
-
-@media (max-width: 640px) {
-  .spatial-head {
-    flex-direction: column;
-  }
-
-  .spatial-results {
-    margin-left: 0;
-    width: 100%;
-  }
-}
-
-        /* spinner */
+        .spatial-card { margin-top: 14px; background: #0B0F19; border: 1px solid #1E293B; border-radius: 12px; padding: 14px; }
+        .spatial-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .spatial-title { font-size: 14px; font-weight: 700; color: #E2E8F0; }
+        .spatial-sub { margin-top: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748B; }
+        .spatial-io { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #94A3B8; }
+        .spatial-io span { background: #111827; border: 1px solid #1E293B; border-radius: 6px; padding: 4px 8px; }
+        .spatial-svg { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid #1E293B; }
+        .plane-bg { fill: #020617; }
+        .axis-line { stroke: #334155; stroke-width: 1.2; }
+        .axis-label { fill: #64748B; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+        .range-circle { fill: rgba(124, 111, 255, 0.08); stroke: #7C6FFF; stroke-width: 2; stroke-dasharray: 6 5; }
+        .knn-line { stroke: #38BDF8; stroke-width: 1.5; stroke-dasharray: 5 5; opacity: 0.75; }
+        .point-selected { fill: #38BDF8; stroke: #E0F2FE; stroke-width: 2; }
+        .point-normal { fill: #475569; stroke: #94A3B8; stroke-width: 1.5; opacity: 0.8; }
+        .query-point { fill: #FB923C; stroke: #FED7AA; stroke-width: 2; }
+        .point-label { fill: #E2E8F0; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+        .point-coord { fill: #64748B; font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+        .query-label { fill: #FED7AA; font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .spatial-footer { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #94A3B8; }
+        .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+        .legend-dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
+        .legend-dot.selected { background: #38BDF8; }
+        .legend-dot.normal { background: #475569; }
+        .legend-dot.query { background: #FB923C; }
+        .spatial-results { margin-left: auto; color: #CBD5E1; }
+        @media (max-width: 640px) { .spatial-head { flex-direction: column; } .spatial-results { margin-left: 0; width: 100%; } }
         .spinner { width: 14px; height: 14px; border: 2px solid #ffffff44; border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
@@ -895,17 +602,10 @@ export default function App() {
           </div>
           <button className="run-btn" onClick={runParser} disabled={loading}>
             {loading ? (
-              <>
-                <div className="spinner" /> Ejecutando…
-              </>
+              <><div className="spinner" /> Ejecutando…</>
             ) : (
               <>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="currentColor"
-                >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M3 2.5l10 5.5-10 5.5V2.5z" />
                 </svg>
                 Ejecutar
@@ -925,9 +625,7 @@ export default function App() {
             </span>
             <div className="csv-actions">
               {uploadMsg && (
-                <span
-                  className={`upload-msg ${uploadMsg.startsWith("✓") ? "ok" : "err"}`}
-                >
+                <span className={`upload-msg ${uploadMsg.startsWith("✓") ? "ok" : "err"}`}>
                   {uploadMsg}
                 </span>
               )}
@@ -945,25 +643,10 @@ export default function App() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 {uploading ? (
-                  <>
-                    <div
-                      className="spinner"
-                      style={{ borderTopColor: "#94A3B8" }}
-                    />{" "}
-                    Subiendo…
-                  </>
+                  <><div className="spinner" style={{ borderTopColor: "#94A3B8" }} /> Subiendo…</>
                 ) : (
                   <>
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M8 1v9M4 5l4-4 4 4M2 13v1a1 1 0 001 1h10a1 1 0 001-1v-1" />
                     </svg>
                     Subir CSV
@@ -982,9 +665,7 @@ export default function App() {
                   onClick={() => setActiveCsv(f.name)}
                 >
                   {f.name}
-                  <span
-                    style={{ color: "#334155", marginLeft: 4, fontSize: 10 }}
-                  >
+                  <span style={{ color: "#334155", marginLeft: 4, fontSize: 10 }}>
                     {f.rows.length} filas
                   </span>
                 </button>
@@ -1003,31 +684,20 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    {activeCsvData.headers.map((h, i) => (
-                      <th key={i}>{h}</th>
-                    ))}
+                    {activeCsvData.headers.map((h, i) => <th key={i}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {activeCsvData.rows.slice(0, 100).map((row, i) => (
                     <tr key={i}>
                       <td className="csv-row-num">{i + 1}</td>
-                      {row.map((cell, j) => (
-                        <td key={j}>{cell}</td>
-                      ))}
+                      {row.map((cell, j) => <td key={j}>{cell}</td>)}
                     </tr>
                   ))}
                   {activeCsvData.rows.length > 100 && (
                     <tr>
-                      <td
-                        colSpan={activeCsvData.headers.length + 1}
-                        style={{
-                          textAlign: "center",
-                          color: "#334155",
-                          padding: "8px",
-                          fontSize: 11,
-                        }}
-                      >
+                      <td colSpan={activeCsvData.headers.length + 1}
+                        style={{ textAlign: "center", color: "#334155", padding: "8px", fontSize: 11 }}>
                         … {activeCsvData.rows.length - 100} filas más
                       </td>
                     </tr>
@@ -1078,138 +748,81 @@ export default function App() {
         {/* ── Results ── */}
         <div className="results">
           <div className="tabs">
-            <button
-              className={`tab-btn ${activeTab === "output" ? "active" : ""}`}
-              onClick={() => setTab("output")}
-            >
+            <button className={`tab-btn ${activeTab === "output" ? "active" : ""}`} onClick={() => setTab("output")}>
               Resultado
             </button>
-            <button
-              className={`tab-btn ${activeTab === "tokens" ? "active" : ""}`}
-              onClick={() => setTab("tokens")}
-            >
+            <button className={`tab-btn ${activeTab === "tokens" ? "active" : ""}`} onClick={() => setTab("tokens")}>
               Tokens
-              {tokens.length > 0 && (
-                <span className="tab-count">{tokens.length}</span>
-              )}
+              {tokens.length > 0 && <span className="tab-count">{tokens.length}</span>}
             </button>
-            <button
-              className={`tab-btn ${activeTab === "ast" ? "active" : ""}`}
-              onClick={() => setTab("ast")}
-            >
-              AST{" "}
-              <span style={{ fontSize: 10, color: "#334155", marginLeft: 4 }}>
-                .dot
-              </span>
+            <button className={`tab-btn ${activeTab === "ast" ? "active" : ""}`} onClick={() => setTab("ast")}>
+              AST <span style={{ fontSize: 10, color: "#334155", marginLeft: 4 }}>.dot</span>
             </button>
           </div>
 
           <div className="tab-pane">
-            {/* Resultado */}
-            {activeTab === "output" &&
-              (!result?.output ? (
-                <div className="empty">
-                  <div className="empty-icon">◈</div>
-                  <div className="empty-text">
-                    Ejecuta una query para ver el resultado
-                  </div>
+            {activeTab === "output" && (!result?.output ? (
+              <div className="empty">
+                <div className="empty-icon">◈</div>
+                <div className="empty-text">Ejecuta una query para ver el resultado</div>
+              </div>
+            ) : (
+              <>
+                <div className="output-wrap">
+                  <pre className="output-code">
+                    {result.output.split("\n").map((line, i) => {
+                      const l = line.toLowerCase();
+                      let cls = "";
+                      if (l.includes("error") || l.includes("no se pudo")) cls = "out-err";
+                      else if (l.includes("creada") || l.includes("insertado") || l.includes("eliminado") || l.includes("exitoso")) cls = "out-ok";
+                      else if (l.includes("btree") || l.includes("sequential") || l.includes("scan") || l.includes("search") || l.includes("total")) cls = "out-info";
+                      else if (l.includes("tiempo") || l.includes(" ms")) cls = "out-time";
+                      return <span key={i} className={cls}>{line}{"\n"}</span>;
+                    })}
+                  </pre>
                 </div>
-              ) : (
-                <>
-                  <div className="output-wrap">
-                    <pre className="output-code">
-                      {result.output.split("\n").map((line, i) => {
-                        const l = line.toLowerCase();
-                        let cls = "";
-                        if (l.includes("error") || l.includes("no se pudo"))
-                          cls = "out-err";
-                        else if (
-                          l.includes("creada") ||
-                          l.includes("insertado") ||
-                          l.includes("eliminado") ||
-                          l.includes("exitoso")
-                        )
-                          cls = "out-ok";
-                        else if (
-                          l.includes("btree") ||
-                          l.includes("sequential") ||
-                          l.includes("scan") ||
-                          l.includes("search") ||
-                          l.includes("total")
-                        )
-                          cls = "out-info";
-                        else if (l.includes("tiempo") || l.includes(" ms"))
-                          cls = "out-time";
-                        return (
-                          <span key={i} className={cls}>
-                            {line}
-                            {"\n"}
-                          </span>
-                        );
-                      })}
-                    </pre>
-                  </div>
-                  {rtreeViz && <SpatialPlane data={rtreeViz} />}
-                </>
-              ))}
+                {rtreeViz && <SpatialPlane data={rtreeViz} />}
+              </>
+            ))}
 
-            {/* Tokens */}
-            {activeTab === "tokens" &&
-              (tokens.length === 0 ? (
-                <div className="empty">
-                  <div className="empty-icon">◈</div>
-                  <div className="empty-text">
-                    Ejecuta una query para ver los tokens
-                  </div>
-                </div>
-              ) : (
-                <table className="token-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Tipo</th>
-                      <th>Valor</th>
+            {activeTab === "tokens" && (tokens.length === 0 ? (
+              <div className="empty">
+                <div className="empty-icon">◈</div>
+                <div className="empty-text">Ejecuta una query para ver los tokens</div>
+              </div>
+            ) : (
+              <table className="token-table">
+                <thead>
+                  <tr><th>#</th><th>Tipo</th><th>Valor</th></tr>
+                </thead>
+                <tbody>
+                  {tokens.map((tok, i) => (
+                    <tr key={i}>
+                      <td className="token-row-num">{i + 1}</td>
+                      <td>
+                        <span className="type-badge" style={{ color: tokenColor(tok.type) }}>
+                          {tok.type}
+                        </span>
+                      </td>
+                      <td className="token-value">
+                        {tok.value ? <code>{tok.value}</code> : <span style={{ color: "#334155" }}>—</span>}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {tokens.map((tok, i) => (
-                      <tr key={i}>
-                        <td className="token-row-num">{i + 1}</td>
-                        <td>
-                          <span
-                            className="type-badge"
-                            style={{ color: tokenColor(tok.type) }}
-                          >
-                            {tok.type}
-                          </span>
-                        </td>
-                        <td className="token-value">
-                          {tok.value ? (
-                            <code>{tok.value}</code>
-                          ) : (
-                            <span style={{ color: "#334155" }}>—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ))}
+                  ))}
+                </tbody>
+              </table>
+            ))}
 
-            {/* AST */}
-            {activeTab === "ast" &&
-              (!result?.ast ? (
-                <div className="empty">
-                  <div className="empty-icon">◈</div>
-                  <div className="empty-text">
-                    Ejecuta una query para ver el AST
-                  </div>
-                </div>
-              ) : (
-                <div className="ast-wrap">
-                  <pre className="ast-code">{result.ast}</pre>
-                </div>
-              ))}
+            {activeTab === "ast" && (!result?.ast ? (
+              <div className="empty">
+                <div className="empty-icon">◈</div>
+                <div className="empty-text">Ejecuta una query para ver el AST</div>
+              </div>
+            ) : (
+              <div className="ast-wrap">
+                <pre className="ast-code">{result.ast}</pre>
+              </div>
+            ))}
           </div>
         </div>
       </div>
