@@ -115,4 +115,4 @@ os.makedirs(ARCHIVOS_DIR, exist_ok=True)
 
 print("✓ Servidor corriendo en http://localhost:3000")
 print(f"  Archivo de entrada configurado en: {INPUT_FILE}")
-HTTPServer(("localhost", 3000), Handler).serve_forever()
+HTTPServer(("0.0.0.0", 3000), Handler).serve_forever()
