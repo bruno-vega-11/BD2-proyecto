@@ -2,7 +2,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import subprocess, json, os
 
 # ── Paths ──────────────────────────────────────────────────────────────
-BASE_DIR    = r"C:\Users\Usuario\Desktop\bd2\Proyecto"
+BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Proyecto")
+BASE_DIR = os.path.normpath(BASE_DIR)  # limpia el ".." del path
 PARSER_EXE  = os.path.join(BASE_DIR, "cmake-build-debug", "Proyecto.exe")
 
 # NUEVA RUTA: Proyecto\inputunput.txt
