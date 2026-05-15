@@ -1,20 +1,27 @@
-FROM gcc:latest
+FROM ubuntu:22.04
 
-# Instalamos cmake por si lo usas, si no, g++ es suficiente
-RUN apt-get update && apt-get install -y cmake
+RUN apt-get update && apt-get install -y \
+    cmake \
+    g++ \
+    make \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copiamos
+# Copiar todo el código fuente
 COPY . .
 
-# Creamos la estructura que tu main espera encontrar
-RUN mkdir -p input outputs archivos
+# Crear carpetas necesarias
+RUN mkdir -p input outputs archivos cmake-build-debug
 
-# Compilamos.
-# Nota: Incluimos las carpetas de los headers (Parser)
-RUN g++ -o bin/mi_dbms main.cpp Parser/scanner.cpp Parser/parser.cpp Parser/visitor.cpp -I.
+# Compilar con CMake
+RUN cmake -S . -B cmake-build-debug -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build cmake-build-debug
 
-# Comando para ejecutarlo
-# Se asume que el binario queda en /app/bin/mi_dbms
-CMD ["./bin/mi_dbms"]
+# Crear carpetas que el exe necesita en runtime
+RUN mkdir -p cmake-build-debug/archivos \
+             cmake-build-debug/outputs \
+             cmake-build-debug/input
+
+# El servidor Python lo arranca, no el exe directamente
+CMD ["tail", "-f", "/dev/null"]
