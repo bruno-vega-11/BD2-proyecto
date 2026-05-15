@@ -3,12 +3,10 @@ import subprocess, json, os
 
 # ── Paths ──────────────────────────────────────────────────────────────
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Proyecto")
-BASE_DIR = os.path.normpath(BASE_DIR)  # limpia el ".." del path
-PARSER_EXE  = os.path.join(BASE_DIR, "cmake-build-debug", "Proyecto.exe")
+BASE_DIR = os.path.normpath(BASE_DIR)
 
-# NUEVA RUTA: Proyecto\inputunput.txt
-INPUT_FILE   = os.path.join(BASE_DIR, "input\input.txt") 
-
+PARSER_EXE   = os.path.join(BASE_DIR, "cmake-build-debug", "Proyecto")
+INPUT_FILE   = os.path.join(BASE_DIR, "input", "input.txt")
 TOKENS_FILE  = os.path.join(BASE_DIR, "outputs", "tokens.txt")
 AST_FILE     = os.path.join(BASE_DIR, "outputs", "ast.dot")
 OUTPUT_FILE  = os.path.join(BASE_DIR, "outputs", "output.txt")
@@ -52,12 +50,12 @@ class Handler(BaseHTTPRequestHandler):
                         filename = h.split("filename=")[-1].strip().strip('"')
 
                 if filename.endswith(".csv") and content:
-                    os.makedirs(ARCHIVOS_DIR, exist_ok=True) 
+                    os.makedirs(ARCHIVOS_DIR, exist_ok=True)
                     dest = os.path.join(ARCHIVOS_DIR, filename)
                     with open(dest, "wb") as f:
                         f.write(content)
                     saved.append(filename)
-            
+
             self._json({"ok": True, "files": saved} if saved else {"error": "Sin CSV"})
             return
 
@@ -67,22 +65,20 @@ class Handler(BaseHTTPRequestHandler):
             result = {"tokens": "", "ast": "", "output": "", "error": None}
 
             try:
-                # 1. Escribir la query en la ruta Proyecto\inputunput.txt
+                os.makedirs(os.path.dirname(INPUT_FILE), exist_ok=True)
                 with open(INPUT_FILE, "w", encoding="utf-8") as f:
                     f.write(query)
 
-                # 2. Ejecutar el .exe pasando la ruta completa de inputunput.txt
                 proc = subprocess.run(
-                    [PARSER_EXE, INPUT_FILE], # Pasamos la ruta completa del txt
+                    [PARSER_EXE, INPUT_FILE],
                     capture_output=True,
                     text=True,
-                    cwd=os.path.dirname(PARSER_EXE) # El proceso corre desde la carpeta del EXE
+                    cwd=os.path.dirname(PARSER_EXE)
                 )
 
-                # 3. Leer los archivos de resultados generados
                 files_to_read = [
                     (TOKENS_FILE, "tokens"),
-                    (AST_FILE, "ast"),
+                    (AST_FILE,    "ast"),
                     (OUTPUT_FILE, "output")
                 ]
 
@@ -109,10 +105,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+
 # Crear carpetas si no existen
 os.makedirs(os.path.join(BASE_DIR, "outputs"), exist_ok=True)
+os.makedirs(os.path.join(BASE_DIR, "input"), exist_ok=True)
 os.makedirs(ARCHIVOS_DIR, exist_ok=True)
 
-print("✓ Servidor corriendo en http://localhost:3000")
-print(f"  Archivo de entrada configurado en: {INPUT_FILE}")
+print("✓ Servidor corriendo en http://0.0.0.0:3000")
+print(f"  BASE_DIR     : {BASE_DIR}")
+print(f"  PARSER_EXE   : {PARSER_EXE}")
+print(f"  INPUT_FILE   : {INPUT_FILE}")
+
 HTTPServer(("0.0.0.0", 3000), Handler).serve_forever()
